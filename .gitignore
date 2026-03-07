@@ -43,11 +43,18 @@ pip-delete-this-directory.txt
 # Logs
 *.log
 app/logs/
+logs/
 
-# Data & Config (exclude user data)
-app/data/
-app/config/
-!app/config/config.json.example
+# Data & Config (exclude all, keep empty folders with .gitkeep)
+app/data/*
+!app/data/.gitkeep
+app/config/*
+!app/config/.gitkeep
+app/logs/*
+!app/logs/.gitkeep
+data/
+config/cookie.json
+config/gallery_flags.json
 
 # Temporary files
 *.tmp
