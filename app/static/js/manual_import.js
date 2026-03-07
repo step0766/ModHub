@@ -641,17 +641,49 @@
   }
 
   function groupFilesByFolder(files) {
-    const groups = new Map();
-    Array.from(files).forEach((file) => {
-      if (!file.name.toLowerCase().endsWith('.3mf')) return;
-      const folderPath = getParentPath(file.webkitRelativePath || file.name);
-      const folderName = getFolderName(file.webkitRelativePath || file.name);
-      if (!groups.has(folderPath)) {
-        groups.set(folderPath, { name: folderName, path: folderPath, files: [] });
+    return Array.from(files).filter(f => f.name.toLowerCase().endsWith('.3mf'));
+  }
+
+  function groupByMetadata(parsedItems) {
+    const groups = [];
+    const usedIndices = new Set();
+
+    for (let i = 0; i < parsedItems.length; i++) {
+      if (usedIndices.has(i)) continue;
+
+      const item = parsedItems[i];
+      const title = (item.title || item.profileTitle || '').trim().toLowerCase();
+      const designer = (item.designer || '').trim().toLowerCase();
+      const groupKey = title && designer ? `${title}|||${designer}` : (title || `unknown_${i}`);
+
+      const group = {
+        name: item.title || item.profileTitle || item.baseName || '未命名模型',
+        files: [item._originalFile],
+        title: item.title || item.profileTitle || '',
+        designer: item.designer || '',
+        profileId: item.profileId || '',
+      };
+
+      usedIndices.add(i);
+
+      for (let j = i + 1; j < parsedItems.length; j++) {
+        if (usedIndices.has(j)) continue;
+
+        const other = parsedItems[j];
+        const otherTitle = (other.title || other.profileTitle || '').trim().toLowerCase();
+        const otherDesigner = (other.designer || '').trim().toLowerCase();
+        const otherKey = otherTitle && otherDesigner ? `${otherTitle}|||${otherDesigner}` : (otherTitle || `unknown_${j}`);
+
+        if (groupKey === otherKey || (title && otherTitle && title === otherTitle)) {
+          group.files.push(other._originalFile);
+          usedIndices.add(j);
+        }
       }
-      groups.get(folderPath).files.push(file);
-    });
-    return Array.from(groups.values());
+
+      groups.push(group);
+    }
+
+    return groups;
   }
 
   function renderPreview() {
@@ -667,17 +699,17 @@
 
       const nameEl = document.createElement('div');
       nameEl.className = 'batch-folder-name';
-      nameEl.innerHTML = `<i class="fas fa-folder"></i> ${model.name}`;
+      nameEl.innerHTML = `<i class="fas fa-cube"></i> ${model.name}`;
 
       const countEl = document.createElement('span');
       countEl.className = 'batch-folder-count';
-      countEl.textContent = `${model.files.length} 个文件`;
+      countEl.textContent = `${model.files.length} 个配置`;
 
       const removeBtn = document.createElement('button');
       removeBtn.className = 'manual-btn danger';
       removeBtn.style.cssText = 'padding:2px 8px;font-size:12px;';
       removeBtn.innerHTML = '<i class="fas fa-times"></i>';
-      removeBtn.title = '移除此文件夹';
+      removeBtn.title = '移除此模型';
       removeBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         folderModels.splice(idx, 1);
@@ -692,10 +724,11 @@
 
       const filesEl = document.createElement('div');
       filesEl.className = 'batch-folder-files';
-      model.files.slice(0, 5).forEach((f) => {
+      const fileNames = model.files.map(f => f.name).slice(0, 5);
+      fileNames.forEach((fname) => {
         const fileTag = document.createElement('span');
         fileTag.className = 'batch-folder-file';
-        fileTag.textContent = f.name;
+        fileTag.textContent = fname;
         filesEl.appendChild(fileTag);
       });
       if (model.files.length > 5) {
@@ -715,8 +748,9 @@
       folderList.appendChild(item);
     });
 
+    const totalFiles = folderModels.reduce((sum, m) => sum + m.files.length, 0);
     if (folderCountEl) folderCountEl.textContent = folderModels.length;
-    if (modelCountEl) modelCountEl.textContent = folderModels.reduce((sum, m) => sum + m.files.length, 0);
+    if (modelCountEl) modelCountEl.textContent = totalFiles;
     preview.classList.remove('hidden');
     if (submitBtn) submitBtn.disabled = folderModels.length === 0;
     if (clearFoldersBtn) clearFoldersBtn.style.display = folderModels.length > 0 ? '' : 'none';
@@ -833,18 +867,49 @@
 
   if (selectFolderBtn && folderPicker) {
     selectFolderBtn.addEventListener('click', () => folderPicker.click());
-    folderPicker.addEventListener('change', () => {
+    folderPicker.addEventListener('change', async () => {
       const files = folderPicker.files;
       if (!files || !files.length) return;
-      const newFolders = groupFilesByFolder(files);
-      if (newFolders.length === 0) {
+      
+      const all3mfFiles = groupFilesByFolder(files);
+      if (all3mfFiles.length === 0) {
         setMsg('所选文件夹中没有找到 .3mf 文件', true);
-      } else {
-        folderModels = folderModels.concat(newFolders);
-        renderPreview();
-        setMsg(`已添加 ${newFolders.length} 个文件夹`, false, true);
+        return;
       }
-      folderPicker.value = '';
+
+      setMsg(`正在解析 ${all3mfFiles.length} 个 3MF 文件...`, false, true);
+      if (selectFolderBtn) selectFolderBtn.disabled = true;
+
+      try {
+        const fd = new FormData();
+        all3mfFiles.forEach((f) => fd.append('files', f));
+        const res = await fetch('/api/manual/3mf/parse', { method: 'POST', body: fd });
+        if (!res.ok) {
+          throw new Error('解析失败');
+        }
+        const data = await res.json();
+        const draft = data && data.draft ? data.draft : null;
+        
+        if (!draft || !draft.items || draft.items.length === 0) {
+          throw new Error('未解析到有效内容');
+        }
+
+        const parsedItems = draft.items.map((item, idx) => ({
+          ...item,
+          _originalFile: all3mfFiles[idx],
+        }));
+
+        const groups = groupByMetadata(parsedItems);
+        
+        folderModels = folderModels.concat(groups);
+        renderPreview();
+        setMsg(`已智能聚合为 ${groups.length} 个模型（共 ${all3mfFiles.length} 个3MF）`, false, true);
+      } catch (err) {
+        setMsg('解析失败: ' + err.message, true);
+      } finally {
+        if (selectFolderBtn) selectFolderBtn.disabled = false;
+        folderPicker.value = '';
+      }
     });
   }
 

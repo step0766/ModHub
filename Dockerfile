@@ -8,7 +8,12 @@ RUN apt-get update \
 
 COPY app/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
-COPY app/ .
+
+COPY app/server.py .
+COPY app/archiver.py .
+COPY app/three_mf_parser.py .
+COPY app/static ./static
+COPY app/templates ./templates
 
 RUN mkdir -p /app/data /app/logs /app/config
 

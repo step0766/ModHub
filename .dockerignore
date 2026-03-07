@@ -1,0 +1,17 @@
+app/config/*
+!app/config/.gitkeep
+app/data/*
+!app/data/.gitkeep
+app/logs/*
+!app/logs/.gitkeep
+app/__pycache__
+*.pyc
+*.pyo
+.git
+.gitignore
+*.md
+.agents
+doc
+plugin
+scripts
+archives
