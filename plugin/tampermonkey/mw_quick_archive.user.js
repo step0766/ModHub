@@ -1,0 +1,313 @@
+// ==UserScript==
+// @name         MakerWorld 快速归档助手
+// @namespace    https://makerworld.com.cn/
+// @version      1.1.0
+// @description  在 MakerWorld 模型页一键归档，支持国内/国际平台分离 Cookie
+// @author       sonic
+// @match        https://makerworld.com.cn/zh/models/*
+// @match        https://makerworld.com/zh/models/*
+// @icon         https://aliyun-wb-h9vflo19he.oss-cn-shanghai.aliyuncs.com/use/makerworld_archive.png
+// @grant        GM_getValue
+// @grant        GM_setValue
+// @grant        GM_registerMenuCommand
+// @grant        GM_xmlhttpRequest
+// @grant        GM_notification
+// @connect      *
+// @noframes
+// ==/UserScript==
+
+(function () {
+  'use strict';
+  if (window.top !== window.self) return;
+  if (window.__MW_QUICK_ARCHIVE_LOADED__) return;
+  window.__MW_QUICK_ARCHIVE_LOADED__ = true;
+
+  const KEY_API_BASE = 'mw_archive_api_base';
+  const KEY_MANUAL_COOKIE_CN = 'mw_archive_manual_cookie_cn';
+  const KEY_MANUAL_COOKIE_COM = 'mw_archive_manual_cookie_com';
+  const DEFAULT_API_BASE = 'http://127.0.0.1:8000';
+  const BTN_ID = 'mw-quick-archive-btn';
+  const MODAL_ID = 'mw-quick-archive-modal';
+  const REQUEST_DEDUP_MS = 2000;
+  let archiveInFlight = false;
+  let lastArchiveAt = 0;
+
+  function getApiBase() {
+    const raw = GM_getValue(KEY_API_BASE, DEFAULT_API_BASE);
+    return String(raw || DEFAULT_API_BASE).trim().replace(/\/+$/, '');
+  }
+
+  function setApiBase(url) {
+    const normalized = String(url || '').trim().replace(/\/+$/, '');
+    GM_setValue(KEY_API_BASE, normalized || DEFAULT_API_BASE);
+  }
+
+  function getCurrentPlatform() {
+    return location.hostname.includes('.cn') ? 'cn' : 'com';
+  }
+
+  function getManualCookie(platform) {
+    const key = platform === 'cn' ? KEY_MANUAL_COOKIE_CN : KEY_MANUAL_COOKIE_COM;
+    return String(GM_getValue(key, '') || '').trim();
+  }
+
+  function setManualCookie(platform, cookie) {
+    const key = platform === 'cn' ? KEY_MANUAL_COOKIE_CN : KEY_MANUAL_COOKIE_COM;
+    GM_setValue(key, String(cookie || '').trim());
+  }
+
+  function notify(text, title = '归档助手') {
+    try {
+      GM_notification({ title, text, timeout: 2500 });
+    } catch (_) {
+      // no-op
+    }
+    console.log(`[MW-ARCHIVER] ${text}`);
+  }
+
+  function requestJson(method, url, bodyObj) {
+    return new Promise((resolve, reject) => {
+      GM_xmlhttpRequest({
+        method,
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        data: bodyObj ? JSON.stringify(bodyObj) : undefined,
+        timeout: 30000,
+        onload: (resp) => {
+          const text = resp.responseText || '';
+          if (resp.status >= 200 && resp.status < 300) {
+            try {
+              resolve(text ? JSON.parse(text) : {});
+            } catch (_) {
+              resolve({});
+            }
+            return;
+          }
+          reject(new Error(`HTTP ${resp.status}: ${text.slice(0, 300)}`));
+        },
+        onerror: () => reject(new Error('网络请求失败')),
+        ontimeout: () => reject(new Error('请求超时')),
+      });
+    });
+  }
+
+  function parseCookieNames(cookieStr) {
+    const names = [];
+    const parts = String(cookieStr || '').split(';').map(s => s.trim()).filter(Boolean);
+    for (const p of parts) {
+      const idx = p.indexOf('=');
+      if (idx <= 0) continue;
+      names.push(p.slice(0, idx).trim());
+    }
+    return names;
+  }
+
+  function ensureModelPage() {
+    return /^https:\/\/makerworld\.(com\.cn|com)\/zh\/models\/.+/i.test(location.href);
+  }
+
+  async function syncManualCookieToBackend(platform, cookieText) {
+    const cookie = String(cookieText || '').trim();
+    if (!cookie) {
+      notify('请先手动填写 Cookie');
+      return;
+    }
+    const api = getApiBase();
+    const count = parseCookieNames(cookie).length;
+    const platformName = platform === 'cn' ? '国内' : '国际';
+    notify(`正在同步${platformName}平台 Cookie (项数: ${count})...`);
+    await requestJson('POST', `${api}/api/cookie`, { cookie, platform });
+    notify(`${platformName}平台 Cookie 同步成功`);
+  }
+
+  async function archiveCurrentModel() {
+    const now = Date.now();
+    if (archiveInFlight || now - lastArchiveAt < REQUEST_DEDUP_MS) {
+      notify('归档请求进行中，请勿重复触发');
+      return;
+    }
+    archiveInFlight = true;
+    lastArchiveAt = now;
+    if (!ensureModelPage()) {
+      archiveInFlight = false;
+      notify('当前页面不是可归档模型页');
+      return;
+    }
+    const api = getApiBase();
+    const url = location.href.split('#')[0];
+    notify('开始归档模型...');
+    try {
+      const data = await requestJson('POST', `${api}/api/archive`, { url });
+      const msg = data.message || (data.action === 'updated' ? '模型已更新成功' : '模型归档成功');
+      notify(`${msg}: ${data.base_name || ''}`);
+    } catch (err) {
+      notify(`归档失败: ${err.message}`);
+    } finally {
+      archiveInFlight = false;
+    }
+  }
+
+  function openSettingsModal() {
+    let modal = document.getElementById(MODAL_ID);
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = MODAL_ID;
+      modal.style.cssText = [
+        'position:fixed',
+        'inset:0',
+        'z-index:2147483647',
+        'background:rgba(0,0,0,.45)',
+        'display:flex',
+        'align-items:center',
+        'justify-content:center',
+      ].join(';');
+
+      const panel = document.createElement('div');
+      panel.style.cssText = [
+        'width:min(92vw,520px)',
+        'background:#fff',
+        'border-radius:10px',
+        'padding:16px',
+        'box-shadow:0 8px 24px rgba(0,0,0,.25)',
+        'font-family:system-ui,-apple-system,Segoe UI,Roboto,Microsoft YaHei,sans-serif',
+        'color:#222',
+        'max-height:85vh',
+        'overflow-y:auto',
+      ].join(';');
+
+      panel.innerHTML = `
+        <div style="font-size:16px;font-weight:700;margin-bottom:10px;">归档助手配置</div>
+        <div style="font-size:13px;color:#666;margin-bottom:8px;">后端 API 地址</div>
+        <input id="mw-quick-api-input" type="text"
+          style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;margin-bottom:12px;"
+          placeholder="http://127.0.0.1:8000" />
+        <div style="font-size:13px;color:#e74c3c;font-weight:600;margin-bottom:4px;">🌐 国内平台 Cookie (makerworld.com.cn)</div>
+        <textarea id="mw-quick-cookie-input-cn"
+          style="width:100%;min-height:70px;box-sizing:border-box;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:12px;font-family:Consolas,'Courier New',monospace;margin-bottom:12px;"
+          placeholder="请粘贴国内平台 Cookie"></textarea>
+        <div style="font-size:13px;color:#3498db;font-weight:600;margin-bottom:4px;">🌍 国际平台 Cookie (makerworld.com)</div>
+        <textarea id="mw-quick-cookie-input-com"
+          style="width:100%;min-height:70px;box-sizing:border-box;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:12px;font-family:Consolas,'Courier New',monospace;margin-bottom:12px;"
+          placeholder="请粘贴国际平台 Cookie"></textarea>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px;">
+          <button id="mw-quick-cancel" style="padding:7px 12px;border:1px solid #ddd;background:#fff;border-radius:8px;cursor:pointer;">取消</button>
+          <button id="mw-quick-save" style="padding:7px 12px;border:0;background:#0ea5e9;color:#fff;border-radius:8px;cursor:pointer;">保存地址</button>
+          <button id="mw-quick-save-cookie" style="padding:7px 12px;border:0;background:#007b55;color:#fff;border-radius:8px;cursor:pointer;">保存并同步 Cookie</button>
+        </div>
+      `;
+
+      modal.appendChild(panel);
+      document.body.appendChild(modal);
+
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.remove();
+      });
+
+      panel.querySelector('#mw-quick-cancel').addEventListener('click', () => {
+        modal.remove();
+      });
+
+      panel.querySelector('#mw-quick-save').addEventListener('click', () => {
+        const input = panel.querySelector('#mw-quick-api-input');
+        setApiBase(input.value);
+        notify(`已保存后端地址: ${getApiBase()}`);
+        modal.remove();
+      });
+
+      panel.querySelector('#mw-quick-save-cookie').addEventListener('click', async () => {
+        try {
+          const cookieInputCn = panel.querySelector('#mw-quick-cookie-input-cn');
+          const cookieInputCom = panel.querySelector('#mw-quick-cookie-input-com');
+          const cookieCn = String(cookieInputCn.value || '').trim();
+          const cookieCom = String(cookieInputCom.value || '').trim();
+          
+          if (!cookieCn && !cookieCom) {
+            notify('请至少填写一个平台的 Cookie');
+            return;
+          }
+          
+          if (cookieCn) {
+            setManualCookie('cn', cookieCn);
+            await syncManualCookieToBackend('cn', cookieCn);
+          }
+          if (cookieCom) {
+            setManualCookie('com', cookieCom);
+            await syncManualCookieToBackend('com', cookieCom);
+          }
+          modal.remove();
+        } catch (err) {
+          notify(`Cookie 同步失败: ${err.message}`);
+        }
+      });
+    }
+
+    const input = modal.querySelector('#mw-quick-api-input');
+    if (input) input.value = getApiBase();
+    const cookieInputCn = modal.querySelector('#mw-quick-cookie-input-cn');
+    if (cookieInputCn) cookieInputCn.value = getManualCookie('cn');
+    const cookieInputCom = modal.querySelector('#mw-quick-cookie-input-com');
+    if (cookieInputCom) cookieInputCom.value = getManualCookie('com');
+  }
+
+  function injectArchiveButton() {
+    if (!ensureModelPage()) return;
+    if (document.getElementById(BTN_ID)) return;
+
+    const btn = document.createElement('button');
+    btn.id = BTN_ID;
+    btn.type = 'button';
+    btn.innerHTML = '<span style="font-size:14px;line-height:1;display:inline-block;">📦</span><span>归档模型</span>';
+    btn.style.cssText = [
+      'position:fixed',
+      'right:18px',
+      'bottom:18px',
+      'z-index:2147483646',
+      'padding:10px 18px',
+      'border:none',
+      'border-radius:999px',
+      'background:#00b800',
+      'color:#fff',
+      'font-size:13px',
+      'font-weight:700',
+      'line-height:1',
+      'display:inline-flex',
+      'align-items:center',
+      'gap:8px',
+      'white-space:nowrap',
+      'font-family:system-ui,-apple-system,Segoe UI,Roboto,Microsoft YaHei,sans-serif',
+      'cursor:pointer',
+      'box-shadow:0 6px 16px rgba(0,0,0,.25)',
+    ].join(';');
+
+    btn.addEventListener('mouseenter', () => { btn.style.background = '#00a800'; });
+    btn.addEventListener('mouseleave', () => { btn.style.background = '#00b800'; });
+    btn.addEventListener('click', archiveCurrentModel);
+    document.body.appendChild(btn);
+  }
+
+  GM_registerMenuCommand('⚙️ 设置后端地址与 Cookie', openSettingsModal);
+  GM_registerMenuCommand('归档当前模型', archiveCurrentModel);
+  GM_registerMenuCommand('🍪 同步当前平台 Cookie', async () => {
+    const platform = getCurrentPlatform();
+    const manual = getManualCookie(platform);
+    const platformName = platform === 'cn' ? '国内' : '国际';
+    if (!manual) {
+      notify(`未找到${platformName}平台的 Cookie，请先在设置中保存`);
+      openSettingsModal();
+      return;
+    }
+    try {
+      await syncManualCookieToBackend(platform, manual);
+    } catch (err) {
+      notify(`同步失败: ${err.message}`);
+    }
+  });
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', injectArchiveButton);
+  } else {
+    injectArchiveButton();
+  }
+})();
