@@ -644,7 +644,41 @@
     return Array.from(files).filter(f => f.name.toLowerCase().endsWith('.3mf'));
   }
 
-  function groupByMetadata(parsedItems) {
+  function calculateSimilarity(str1, str2) {
+    if (!str1 || !str2) return 0;
+    const s1 = str1.toLowerCase().trim();
+    const s2 = str2.toLowerCase().trim();
+    if (s1 === s2) return 1;
+    
+    const len1 = s1.length;
+    const len2 = s2.length;
+    if (len1 === 0 || len2 === 0) return 0;
+    
+    const matrix = [];
+    for (let i = 0; i <= len1; i++) {
+      matrix[i] = [i];
+    }
+    for (let j = 0; j <= len2; j++) {
+      matrix[0][j] = j;
+    }
+    
+    for (let i = 1; i <= len1; i++) {
+      for (let j = 1; j <= len2; j++) {
+        const cost = s1[i - 1] === s2[j - 1] ? 0 : 1;
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j - 1] + cost
+        );
+      }
+    }
+    
+    const maxLen = Math.max(len1, len2);
+    const distance = matrix[len1][len2];
+    return (maxLen - distance) / maxLen;
+  }
+
+  function groupByMetadata(parsedItems, sessionId) {
     const groups = [];
     const usedIndices = new Set();
 
@@ -652,16 +686,28 @@
       if (usedIndices.has(i)) continue;
 
       const item = parsedItems[i];
-      const title = (item.title || item.profileTitle || '').trim().toLowerCase();
+      const title = (item.modelTitle || item.title || '').trim().toLowerCase();
+      const profileTitle = (item.profileTitle || '').trim().toLowerCase();
       const designer = (item.designer || '').trim().toLowerCase();
-      const groupKey = title && designer ? `${title}|||${designer}` : (title || `unknown_${i}`);
+      const groupKey = title && designer ? `${title}|||${designer}` : (title || profileTitle || `unknown_${i}`);
+      const hasMissingMetadata = !title || !designer;
+      
+      const file = item._originalFile;
+      const filePath = file.webkitRelativePath || file.name;
+      const folderPath = filePath.includes('/') ? filePath.substring(0, filePath.lastIndexOf('/')) : '';
 
       const group = {
-        name: item.title || item.profileTitle || item.baseName || '未命名模型',
+        name: item.modelTitle || item.title || item.profileTitle || item.baseName || '未命名模型',
         files: [item._originalFile],
-        title: item.title || item.profileTitle || '',
+        title: item.modelTitle || item.title || '',
+        profileTitle: item.profileTitle || '',
         designer: item.designer || '',
         profileId: item.profileId || '',
+        hasMissingMetadata: hasMissingMetadata,
+        pendingDecision: hasMissingMetadata,
+        sessionId: sessionId,
+        similarGroupIndices: [],
+        folderPath: folderPath,
       };
 
       usedIndices.add(i);
@@ -670,9 +716,10 @@
         if (usedIndices.has(j)) continue;
 
         const other = parsedItems[j];
-        const otherTitle = (other.title || other.profileTitle || '').trim().toLowerCase();
+        const otherTitle = (other.modelTitle || other.title || '').trim().toLowerCase();
+        const otherProfileTitle = (other.profileTitle || '').trim().toLowerCase();
         const otherDesigner = (other.designer || '').trim().toLowerCase();
-        const otherKey = otherTitle && otherDesigner ? `${otherTitle}|||${otherDesigner}` : (otherTitle || `unknown_${j}`);
+        const otherKey = otherTitle && otherDesigner ? `${otherTitle}|||${otherDesigner}` : (otherTitle || otherProfileTitle || `unknown_${j}`);
 
         if (groupKey === otherKey || (title && otherTitle && title === otherTitle)) {
           group.files.push(other._originalFile);
@@ -683,6 +730,26 @@
       groups.push(group);
     }
 
+    const SIMILARITY_THRESHOLD = 0.7;
+    for (let i = 0; i < groups.length; i++) {
+      for (let j = i + 1; j < groups.length; j++) {
+        const g1 = groups[i];
+        const g2 = groups[j];
+        const title1 = (g1.title || '').trim().toLowerCase();
+        const title2 = (g2.title || '').trim().toLowerCase();
+        const designer1 = (g1.designer || '').trim().toLowerCase();
+        const designer2 = (g2.designer || '').trim().toLowerCase();
+        
+        if (title1 && title2 && designer1 && designer2 && designer1 === designer2) {
+          const similarity = calculateSimilarity(title1, title2);
+          if (similarity >= SIMILARITY_THRESHOLD) {
+            g1.similarGroupIndices.push({ index: j, name: g2.name, similarity: similarity });
+            g2.similarGroupIndices.push({ index: i, name: g1.name, similarity: similarity });
+          }
+        }
+      }
+    }
+
     return groups;
   }
 
@@ -690,6 +757,8 @@
     if (!folderList || !preview) return;
     folderList.innerHTML = '';
     folderModels.forEach((model, idx) => {
+      if (model.mergedWith !== undefined) return;
+      
       const item = document.createElement('div');
       item.className = 'batch-folder-item pending';
       item.id = `batch-folder-${idx}`;
@@ -710,8 +779,16 @@
       removeBtn.style.cssText = 'padding:2px 8px;font-size:12px;';
       removeBtn.innerHTML = '<i class="fas fa-times"></i>';
       removeBtn.title = '移除此模型';
-      removeBtn.addEventListener('click', (e) => {
+      removeBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
+        const model = folderModels[idx];
+        if (model && model.sessionId) {
+          try {
+            await fetch(`/api/draft/${model.sessionId}`, { method: 'DELETE' });
+          } catch (err) {
+            console.error('清理暂存目录失败:', err);
+          }
+        }
         folderModels.splice(idx, 1);
         renderPreview();
         if (submitBtn) submitBtn.disabled = folderModels.length === 0;
@@ -744,16 +821,186 @@
 
       item.appendChild(header);
       item.appendChild(filesEl);
+
+      if (model.similarGroupIndices && model.similarGroupIndices.length > 0 && !model.mergedWith) {
+        const similarEl = document.createElement('div');
+        similarEl.className = 'batch-folder-similar';
+        similarEl.id = `batch-similar-${idx}`;
+        
+        const infoEl = document.createElement('div');
+        infoEl.className = 'batch-folder-similar-info';
+        
+        const folderGroups = {};
+        model.similarGroupIndices.forEach((similar) => {
+          const targetModel = folderModels[similar.index];
+          if (targetModel && targetModel.mergedWith === undefined) {
+            const fp = targetModel.folderPath || '';
+            if (!folderGroups[fp]) {
+              folderGroups[fp] = [];
+            }
+            folderGroups[fp].push(similar);
+          }
+        });
+        
+        const allSimilarNames = model.similarGroupIndices.map(s => `"${s.name}"`).join('、');
+        infoEl.innerHTML = `<i class="fas fa-code-branch"></i> 检测到相似模型：${allSimilarNames}`;
+        
+        const btnGroup = document.createElement('div');
+        btnGroup.className = 'batch-folder-similar-btns';
+        
+        Object.keys(folderGroups).forEach((folderPath) => {
+          if (folderPath && folderGroups[folderPath].length > 0) {
+            const folderBtn = document.createElement('button');
+            folderBtn.className = 'manual-btn primary';
+            const folderName = folderPath.split('/').pop() || folderPath;
+            folderBtn.textContent = `合并同文件夹 (${folderName})`;
+            folderBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              folderModels.forEach((m, i) => {
+                if (i !== idx && m.mergedWith === undefined && m.folderPath === folderPath) {
+                  model.files.push(...m.files);
+                  m.mergedWith = idx;
+                }
+              });
+              model.similarGroupIndices = [];
+              similarEl.remove();
+              renderPreview();
+            });
+            btnGroup.appendChild(folderBtn);
+          }
+        });
+        
+        const skipBtn = document.createElement('button');
+        skipBtn.className = 'manual-btn';
+        skipBtn.textContent = '保持独立';
+        skipBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          model.similarGroupIndices = [];
+          similarEl.remove();
+        });
+        btnGroup.appendChild(skipBtn);
+        
+        similarEl.appendChild(infoEl);
+        similarEl.appendChild(btnGroup);
+        item.appendChild(similarEl);
+      }
+
+      if (model.hasMissingMetadata && model.pendingDecision) {
+        const decisionEl = document.createElement('div');
+        decisionEl.className = 'batch-folder-decision';
+        decisionEl.id = `batch-decision-${idx}`;
+        
+        const warningEl = document.createElement('div');
+        warningEl.className = 'batch-folder-warning';
+        warningEl.innerHTML = '<i class="fas fa-exclamation-triangle"></i> 部分文件缺少元数据，请选择处理方式：';
+        
+        const btnGroup = document.createElement('div');
+        btnGroup.className = 'batch-folder-decision-btns';
+        
+        const mergeAllBtn = document.createElement('button');
+        mergeAllBtn.className = 'manual-btn primary';
+        mergeAllBtn.textContent = '合并同文件夹所有文件';
+        mergeAllBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          
+          const sameFolderModels = folderModels.filter((m, i) => 
+            i !== idx && 
+            m.mergedWith === undefined &&
+            m.folderPath === model.folderPath
+          );
+          
+          const modelWithMetadata = sameFolderModels.find(m => !m.hasMissingMetadata);
+          
+          if (modelWithMetadata) {
+            modelWithMetadata.files.push(...model.files);
+            model.mergedWith = folderModels.indexOf(modelWithMetadata);
+            sameFolderModels.forEach((targetModel) => {
+              if (targetModel !== modelWithMetadata) {
+                modelWithMetadata.files.push(...targetModel.files);
+                targetModel.mergedWith = folderModels.indexOf(modelWithMetadata);
+              }
+            });
+          } else {
+            if (sameFolderModels.length > 0) {
+              sameFolderModels.forEach((targetModel) => {
+                model.files.push(...targetModel.files);
+                targetModel.mergedWith = idx;
+              });
+            }
+            model.pendingDecision = false;
+            model.hasMissingMetadata = false;
+          }
+          decisionEl.remove();
+          renderPreview();
+        });
+        btnGroup.appendChild(mergeAllBtn);
+        
+        const separateBtn = document.createElement('button');
+        separateBtn.className = 'manual-btn';
+        separateBtn.textContent = '作为独立模型';
+        separateBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const newGroups = [];
+          model.files.forEach((file) => {
+            newGroups.push({
+              name: file.name.replace(/\.3mf$/i, ''),
+              files: [file],
+              title: '',
+              profileTitle: '',
+              designer: '',
+              profileId: '',
+              hasMissingMetadata: true,
+              pendingDecision: false,
+            });
+          });
+          folderModels.splice(idx, 1, ...newGroups);
+          renderPreview();
+        });
+        
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'manual-btn danger';
+        cancelBtn.textContent = '取消导入';
+        cancelBtn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const model = folderModels[idx];
+          if (model && model.sessionId) {
+            try {
+              await fetch(`/api/draft/${model.sessionId}`, { method: 'DELETE' });
+            } catch (err) {
+              console.error('清理暂存目录失败:', err);
+            }
+          }
+          folderModels.splice(idx, 1);
+          renderPreview();
+          if (submitBtn) submitBtn.disabled = folderModels.length === 0;
+          if (clearFoldersBtn) clearFoldersBtn.style.display = folderModels.length > 0 ? '' : 'none';
+        });
+        
+        btnGroup.appendChild(separateBtn);
+        btnGroup.appendChild(cancelBtn);
+        decisionEl.appendChild(warningEl);
+        decisionEl.appendChild(btnGroup);
+        item.appendChild(decisionEl);
+      }
+
       item.appendChild(statusEl);
       folderList.appendChild(item);
     });
 
-    const totalFiles = folderModels.reduce((sum, m) => sum + m.files.length, 0);
-    if (folderCountEl) folderCountEl.textContent = folderModels.length;
+    const activeModels = folderModels.filter(m => m.mergedWith === undefined);
+    const totalFiles = activeModels.reduce((sum, m) => sum + m.files.length, 0);
+    if (folderCountEl) folderCountEl.textContent = activeModels.length;
     if (modelCountEl) modelCountEl.textContent = totalFiles;
     preview.classList.remove('hidden');
-    if (submitBtn) submitBtn.disabled = folderModels.length === 0;
-    if (clearFoldersBtn) clearFoldersBtn.style.display = folderModels.length > 0 ? '' : 'none';
+    updateSubmitButtonState();
+    if (clearFoldersBtn) clearFoldersBtn.style.display = activeModels.length > 0 ? '' : 'none';
+  }
+
+  function updateSubmitButtonState() {
+    if (!submitBtn) return;
+    const activeModels = folderModels.filter(m => m.mergedWith === undefined);
+    const hasPendingDecision = activeModels.some(m => m.pendingDecision);
+    submitBtn.disabled = folderModels.length === 0 || hasPendingDecision;
   }
 
   async function parse3mfFilesForBatch(files) {
@@ -769,9 +1016,11 @@
   }
 
   async function importModel(model, idx) {
+    let newSessionId = null;
     try {
       const draft = await parse3mfFilesForBatch(model.files);
       if (!draft) throw new Error('解析结果为空');
+      newSessionId = draft.sessionId;
 
       const fd = new FormData();
       fd.append('title', draft.title || model.name);
@@ -785,8 +1034,24 @@
         const err = await res.text();
         throw new Error(err || '导入失败');
       }
+      
+      if (model.sessionId && model.sessionId !== newSessionId) {
+        try {
+          await fetch(`/api/draft/${model.sessionId}`, { method: 'DELETE' });
+        } catch (e) {
+          console.error('清理原始暂存目录失败:', e);
+        }
+      }
+      
       return { success: true, idx, title: draft.title || model.name };
     } catch (err) {
+      if (newSessionId) {
+        try {
+          await fetch(`/api/draft/${newSessionId}`, { method: 'DELETE' });
+        } catch (e) {
+          console.error('清理暂存目录失败:', e);
+        }
+      }
       return { success: false, idx, error: err.message || '未知错误' };
     }
   }
@@ -815,7 +1080,8 @@
   }
 
   async function startBatchImport() {
-    if (!folderModels.length) return;
+    const activeModels = folderModels.filter(m => m.mergedWith === undefined);
+    if (!activeModels.length) return;
     if (submitBtn) submitBtn.disabled = true;
     if (selectFolderBtn) selectFolderBtn.disabled = true;
     if (clearFoldersBtn) clearFoldersBtn.disabled = true;
@@ -827,7 +1093,9 @@
 
     for (let i = 0; i < folderModels.length; i++) {
       const model = folderModels[i];
-      updateProgress(i, folderModels.length, `正在解析: ${model.name} (${i + 1}/${folderModels.length})`);
+      if (model.mergedWith !== undefined) continue;
+      
+      updateProgress(successCount + failCount, activeModels.length, `正在解析: ${model.name} (${successCount + failCount + 1}/${activeModels.length})`);
       
       const result = await importModel(model, i);
       if (result.success) {
@@ -837,7 +1105,7 @@
         failCount++;
         updateItemStatus(i, false, result.error);
       }
-      updateProgress(i + 1, folderModels.length, `已完成: ${i + 1}/${folderModels.length}`);
+      updateProgress(successCount + failCount, activeModels.length, `已完成: ${successCount + failCount}/${activeModels.length}`);
     }
 
     setMsg(
@@ -899,7 +1167,7 @@
           _originalFile: all3mfFiles[idx],
         }));
 
-        const groups = groupByMetadata(parsedItems);
+        const groups = groupByMetadata(parsedItems, draft.sessionId);
         
         folderModels = folderModels.concat(groups);
         renderPreview();
@@ -914,7 +1182,23 @@
   }
 
   if (clearFoldersBtn) {
-    clearFoldersBtn.addEventListener('click', () => {
+    clearFoldersBtn.addEventListener('click', async () => {
+      const sessionIds = folderModels
+        .map(m => m.sessionId)
+        .filter(sid => sid);
+      
+      if (sessionIds.length > 0) {
+        try {
+          await fetch('/api/draft/batch-cancel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(sessionIds),
+          });
+        } catch (err) {
+          console.error('批量清理暂存目录失败:', err);
+        }
+      }
+      
       folderModels = [];
       renderPreview();
       setMsg('已清空文件夹列表');
@@ -966,22 +1250,43 @@
       
       try {
         const folderFilesArrays = await Promise.all(folderPromises);
-        let addedCount = 0;
+        const all3mfFiles = [];
         
         folderFilesArrays.forEach((files) => {
-          const newFolders = groupFilesByFolder(files);
-          if (newFolders.length > 0) {
-            folderModels = folderModels.concat(newFolders);
-            addedCount += newFolders.length;
-          }
+          const filtered = groupFilesByFolder(files);
+          all3mfFiles.push(...filtered);
         });
 
-        if (addedCount === 0) {
+        if (all3mfFiles.length === 0) {
           setMsg('拖放的文件夹中没有找到 .3mf 文件', true);
-        } else {
-          renderPreview();
-          setMsg(`已添加 ${addedCount} 个文件夹`, false, true);
+          return;
         }
+
+        setMsg(`正在解析 ${all3mfFiles.length} 个 3MF 文件...`, false, true);
+
+        const fd = new FormData();
+        all3mfFiles.forEach((f) => fd.append('files', f));
+        const res = await fetch('/api/manual/3mf/parse', { method: 'POST', body: fd });
+        if (!res.ok) {
+          throw new Error('解析失败');
+        }
+        const data = await res.json();
+        const draft = data && data.draft ? data.draft : null;
+        
+        if (!draft || !draft.items || draft.items.length === 0) {
+          throw new Error('未解析到有效内容');
+        }
+
+        const parsedItems = draft.items.map((item, idx) => ({
+          ...item,
+          _originalFile: all3mfFiles[idx],
+        }));
+
+        const groups = groupByMetadata(parsedItems);
+        
+        folderModels = folderModels.concat(groups);
+        renderPreview();
+        setMsg(`已智能聚合为 ${groups.length} 个模型（共 ${all3mfFiles.length} 个3MF）`, false, true);
       } catch (err) {
         setMsg(`扫描文件夹失败：${err.message || err}`, true);
       }

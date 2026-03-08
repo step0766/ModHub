@@ -345,6 +345,7 @@ def build_draft_payload(session_id: str, parsed_items: List[Dict]) -> Dict:
         "designFiles": design_files,
         "attachments": attachments,
         "instances": instances,
+        "items": parsed_items,
     }
 
 

@@ -4,9 +4,10 @@ import re
 import shutil
 import sys
 import threading
+import time
 import uuid
 from html import escape as escape_html
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List, Optional
 from urllib.parse import urlparse
@@ -59,6 +60,58 @@ logger.addHandler(fh)
 sh = logging.StreamHandler(sys.stdout)
 sh.setFormatter(fmt)
 logger.addHandler(sh)
+
+DRAFT_CLEANUP_HOURS = 24
+
+def cleanup_old_drafts():
+    try:
+        if not MANUAL_DRAFT_ROOT.exists():
+            return
+        now = datetime.now()
+        cutoff = now - timedelta(hours=DRAFT_CLEANUP_HOURS)
+        cleaned = 0
+        for session_dir in MANUAL_DRAFT_ROOT.iterdir():
+            if not session_dir.is_dir():
+                continue
+            try:
+                draft_file = session_dir / "draft.json"
+                if draft_file.exists():
+                    mtime = datetime.fromtimestamp(draft_file.stat().st_mtime)
+                else:
+                    mtime = datetime.fromtimestamp(session_dir.stat().st_mtime)
+                if mtime < cutoff:
+                    shutil.rmtree(session_dir, ignore_errors=True)
+                    cleaned += 1
+                    logger.info("清理过期暂存目录: %s", session_dir.name)
+            except Exception as e:
+                logger.warning("清理暂存目录失败 %s: %s", session_dir.name, e)
+        if cleaned > 0:
+            logger.info("定时清理完成，共清理 %d 个暂存目录", cleaned)
+    except Exception as e:
+        logger.exception("定时清理暂存目录异常: %s", e)
+
+def cleanup_draft_session(session_id: str):
+    if not session_id or not re.fullmatch(r"[a-f0-9]{32}", session_id):
+        return False
+    session_dir = MANUAL_DRAFT_ROOT / session_id
+    if session_dir.exists() and session_dir.is_dir():
+        try:
+            shutil.rmtree(session_dir, ignore_errors=True)
+            logger.info("清理暂存目录: %s", session_id)
+            return True
+        except Exception as e:
+            logger.warning("清理暂存目录失败 %s: %s", session_id, e)
+            return False
+    return True
+
+def start_cleanup_scheduler():
+    def run_cleanup():
+        while True:
+            time.sleep(3600)
+            cleanup_old_drafts()
+    t = threading.Thread(target=run_cleanup, daemon=True)
+    t.start()
+    logger.info("暂存目录清理定时任务已启动，每小时检查一次，清理超过 %d 小时的文件", DRAFT_CLEANUP_HOURS)
 
 _TAG_RE = re.compile(r"<[^>]+>")
 
@@ -1340,6 +1393,7 @@ ensure_manual_counter_file(CFG)
 
 TMP_DIR.mkdir(parents=True, exist_ok=True)
 MANUAL_DRAFT_ROOT.mkdir(parents=True, exist_ok=True)
+start_cleanup_scheduler()
 
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 app.mount("/files", StaticFiles(directory=CFG["download_dir"], html=True), name="files")
@@ -2268,7 +2322,42 @@ async def api_manual_import(
     hero_file = cover_name or (design_names[0] if design_names else (summary_names_all[0] if summary_names_all else ""))
     hero_rel = f"./images/{hero_file}" if hero_file else "screenshot.png"
     logger.info("手动导入模型完成: %s", model_dir)
+    
+    if draft_session_id:
+        cleanup_draft_session(draft_session_id)
+    
     return {"status": "ok", "base_name": base_name, "work_dir": str(model_dir.resolve())}
+
+
+@app.delete("/api/draft/{session_id}")
+async def api_cancel_draft(session_id: str):
+    sid = (session_id or "").strip()
+    if not sid:
+        raise HTTPException(400, "session_id 不能为空")
+    if not re.fullmatch(r"[a-f0-9]{32}", sid):
+        raise HTTPException(400, "session_id 无效")
+    
+    success = cleanup_draft_session(sid)
+    if success:
+        return {"status": "ok", "message": "暂存目录已清理"}
+    else:
+        raise HTTPException(500, "清理暂存目录失败")
+
+
+@app.post("/api/draft/batch-cancel")
+async def api_batch_cancel_drafts(session_ids: List[str]):
+    cleaned = []
+    failed = []
+    for sid in session_ids:
+        sid = (sid or "").strip()
+        if not sid or not re.fullmatch(r"[a-f0-9]{32}", sid):
+            failed.append(sid)
+            continue
+        if cleanup_draft_session(sid):
+            cleaned.append(sid)
+        else:
+            failed.append(sid)
+    return {"status": "ok", "cleaned": cleaned, "failed": failed}
 
 
 @app.post("/api/models/{model_dir}/delete")
@@ -2440,4 +2529,4 @@ async def api_v2_model_meta(model_dir: str):
 
 
 if __name__ == "__main__":
-    uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=False)

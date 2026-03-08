@@ -728,3 +728,67 @@
   opacity: 1;
   transform: scale(1.1);
 }
+
+.batch-folder-decision {
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--color-warning-light, #fff3cd);
+  border: 1px solid var(--color-warning, #ffc107);
+  border-radius: 6px;
+}
+
+.batch-folder-warning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  color: var(--color-warning-text, #856404);
+}
+
+.batch-folder-warning i {
+  color: var(--color-warning, #ffc107);
+}
+
+.batch-folder-decision-btns {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.batch-folder-decision-btns .manual-btn {
+  font-size: 12px;
+  padding: 6px 12px;
+}
+
+.batch-folder-similar {
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--color-info-light, #e3f2fd);
+  border: 1px solid var(--color-info, #2196f3);
+  border-radius: 6px;
+}
+
+.batch-folder-similar-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  color: var(--color-info-text, #1565c0);
+}
+
+.batch-folder-similar-info i {
+  color: var(--color-info, #2196f3);
+}
+
+.batch-folder-similar-btns {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.batch-folder-similar-btns .manual-btn {
+  font-size: 12px;
+  padding: 6px 12px;
+}
