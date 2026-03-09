@@ -148,11 +148,11 @@ header {
 
 /* Sidebar */
 .sidebar {
-  width: 280px;
+  width: 250px;
   flex-shrink: 0;
   background: var(--bg-card);
   border-right: 1px solid var(--border-color);
-  padding: 16px;
+  padding: 24px 16px;
   overflow-y: auto;
   position: sticky;
   top: 64px;
@@ -165,98 +165,19 @@ header {
   display: none;
 }
 
+/* Mobile search section - hidden on desktop */
+.mobile-search-section {
+  display: none;
+}
+
+/* Mobile toolbar section - hidden on desktop */
+.mobile-toolbar-section {
+  display: none;
+}
+
 /* Sidebar content wrapper - visible on desktop */
 .sidebar-content {
   display: block;
-}
-
-/* Sidebar Reset Button */
-.sidebar-reset {
-  margin-bottom: 12px;
-}
-
-.sidebar-reset .btn {
-  width: 100%;
-  justify-content: center;
-}
-
-/* Sidebar Search */
-.sidebar-search {
-  margin-bottom: 12px;
-}
-
-.sidebar-search .search-box {
-  width: 100%;
-  height: 40px;
-  border-radius: 20px;
-  padding: 0 14px;
-  background: var(--bg-hover);
-  border: 1px solid var(--border-color);
-}
-
-.sidebar-search .search-box__input {
-  font-size: 15px;
-}
-
-/* Sidebar Toolbar */
-.sidebar-toolbar {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 12px;
-  background: var(--bg-hover);
-  border-radius: 10px;
-  margin-bottom: 16px;
-}
-
-.sidebar-toolbar .toolbar-count {
-  font-size: 13px;
-  color: var(--text-primary);
-  font-weight: 500;
-}
-
-.sidebar-toolbar .toolbar-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-}
-
-.sidebar-toolbar .sort-order {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex: 1;
-  min-width: 0;
-}
-
-.sidebar-toolbar .sort-order label {
-  font-size: 12px;
-  color: var(--text-secondary);
-  white-space: nowrap;
-}
-
-.sidebar-toolbar .sort-order select {
-  flex: 1;
-  min-width: 0;
-  padding: 6px 10px;
-  font-size: 13px;
-  border-radius: 6px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-card);
-  color: var(--text-primary);
-}
-
-.sidebar-toolbar .multi-select-mode {
-  display: none;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-}
-
-.sidebar-toolbar .btn {
-  padding: 6px 12px;
-  font-size: 12px;
 }
 
 /* Sidebar Header */
@@ -265,7 +186,7 @@ header {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 0;
-  padding-bottom: 12px;
+  padding-bottom: 16px;
   border-bottom: 1px solid var(--border-color);
 }
 
@@ -975,7 +896,7 @@ body.multi-select-mode .card:hover .hover-quick-actions {
     transition: all 0.3s ease;
   }
 
-  /* Mobile sidebar toggle button */
+  /* Mobile sidebar toggle button - improved design */
   .sidebar-toggle-mobile {
     display: flex;
     align-items: center;
@@ -1050,56 +971,94 @@ body.multi-select-mode .card:hover .hover-quick-actions {
     display: block;
   }
 
-  /* Mobile sidebar reset */
-  .sidebar-reset {
-    margin-bottom: 10px;
+  /* Hide desktop toolbar on mobile */
+  .toolbar {
+    display: none;
   }
 
-  .sidebar-reset .btn {
-    padding: 10px 16px;
-    font-size: 14px;
+  /* Mobile search section */
+  .mobile-search-section {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    margin-bottom: 12px;
   }
 
-  /* Mobile sidebar search */
-  .sidebar-search .search-box {
-    height: 44px;
-    border-radius: 22px;
+  .mobile-search-section .search-box {
+    flex: 1;
+    height: 40px;
+    border-radius: 20px;
+    padding: 0 14px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
   }
 
-  .sidebar-search .search-box__input {
-    font-size: 16px;
+  .mobile-search-section .search-box__input {
+    font-size: 15px;
   }
 
-  /* Mobile sidebar toolbar */
-  .sidebar-toolbar {
-    flex-direction: column;
-    gap: 10px;
-    padding: 12px;
+  .mobile-search-section .btn {
+    padding: 8px 12px;
+    font-size: 13px;
+    white-space: nowrap;
   }
 
-  .sidebar-toolbar .toolbar-count {
-    font-size: 14px;
-  }
-
-  .sidebar-toolbar .toolbar-actions {
-    width: 100%;
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  .sidebar-toolbar .sort-order {
-    width: 100%;
-  }
-
-  .sidebar-toolbar .sort-order select {
+  /* Mobile toolbar section - inline layout */
+  .mobile-toolbar-section {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
     padding: 10px 12px;
-    font-size: 14px;
+    background: var(--bg-hover);
+    border-radius: 10px;
+    margin-top: 12px;
   }
 
-  .sidebar-toolbar .btn {
+  .mobile-toolbar-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .mobile-toolbar-row:first-child {
     width: 100%;
-    padding: 10px 16px;
-    font-size: 14px;
+    justify-content: space-between;
+  }
+
+  .mobile-toolbar-row:not(:first-child) {
+    flex: 1;
+  }
+
+  .mobile-toolbar-row label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+
+  .mobile-toolbar-row select {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 10px;
+    font-size: 13px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-card);
+    color: var(--text-primary);
+  }
+
+  .mobile-toolbar-row .btn {
+    flex: 1;
+    justify-content: center;
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .mobile-toolbar-row .toolbar-count {
+    font-size: 13px;
+    color: var(--text-primary);
+    font-weight: 500;
   }
 
   /* Show all sidebar sections on mobile */
