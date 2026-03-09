@@ -906,27 +906,77 @@ body.multi-select-mode .card:hover .hover-quick-actions {
     align-items: center;
     justify-content: center;
     width: 100%;
-    padding: 12px;
-    background: var(--bg-card);
-    border-bottom: 1px solid var(--border-color);
+    padding: 14px 16px;
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+    border: none;
     cursor: pointer;
-    gap: 8px;
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--text-primary);
+    gap: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #fff;
     -webkit-tap-highlight-color: transparent;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .sidebar-toggle-mobile::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 100%);
+    pointer-events: none;
   }
 
   .sidebar-toggle-mobile:active {
+    transform: scale(0.98);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  }
+
+  .sidebar-toggle-mobile .toggle-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    transition: transform 0.3s ease, background 0.3s ease;
+  }
+
+  .sidebar.expanded .sidebar-toggle-mobile .toggle-icon {
+    transform: rotate(180deg);
+    background: rgba(255, 255, 255, 0.3);
+  }
+
+  .sidebar-toggle-mobile .toggle-text {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .sidebar-toggle-mobile .toggle-hint {
+    font-size: 12px;
+    font-weight: 400;
+    opacity: 0.85;
+  }
+
+  .sidebar.expanded .sidebar-toggle-mobile {
+    background: var(--bg-card);
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-color);
+    box-shadow: none;
+  }
+
+  .sidebar.expanded .sidebar-toggle-mobile .toggle-icon {
     background: var(--bg-hover);
   }
 
-  .sidebar-toggle-mobile i {
-    transition: transform 0.3s ease;
-  }
-
-  .sidebar.expanded .sidebar-toggle-mobile i {
-    transform: rotate(180deg);
+  .sidebar.expanded .sidebar-toggle-mobile .toggle-hint {
+    display: none;
   }
 
   /* Sidebar content wrapper */

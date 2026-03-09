@@ -1413,12 +1413,23 @@ let mobileSidebarAutoCollapseTimer = null;
 function closeMobileSidebar() {
   if (window.innerWidth <= 992) {
     sidebar.classList.remove('expanded');
+    // Update hint text
+    const hint = sidebarToggleMobile?.querySelector('.toggle-hint');
+    if (hint) {
+      hint.textContent = '点击展开';
+    }
   }
 }
 
 if (sidebarToggleMobile) {
   sidebarToggleMobile.addEventListener('click', () => {
     sidebar.classList.toggle('expanded');
+    
+    // Update hint text
+    const hint = sidebarToggleMobile.querySelector('.toggle-hint');
+    if (hint) {
+      hint.textContent = sidebar.classList.contains('expanded') ? '点击收起' : '点击展开';
+    }
     
     // Clear any existing auto-collapse timer
     if (mobileSidebarAutoCollapseTimer) {
