@@ -70,7 +70,7 @@
         <div class="sidebar-toggle-mobile" id="sidebarToggleMobile">
           <span class="toggle-text">
             <i class="fas fa-filter"></i>
-            <span>筛选与分类</span>
+            <span>筛选与排序</span>
             <span class="toggle-hint">点击展开</span>
           </span>
           <span class="toggle-icon">
@@ -127,12 +127,32 @@
           <div id="authorChips" class="side-menu">
             <!-- JS will populate vertical items -->
           </div>
+
+          <!-- Mobile Toolbar Section -->
+          <div class="mobile-toolbar-section">
+            <div class="mobile-toolbar-row">
+              <span class="toolbar-count">共 <span id="totalCountMobile">0</span> 个模型</span>
+            </div>
+            <div class="mobile-toolbar-row">
+              <label>排序</label>
+              <select id="sortOrderMobile">
+                <option value="collected" selected>采集时间倒序</option>
+                <option value="published">发布时间倒序</option>
+                <option value="similarity">模型相似度倒序</option>
+              </select>
+            </div>
+            <div class="mobile-toolbar-row">
+              <button class="btn btn-secondary" id="multiSelectBtnMobile" onclick="toggleMultiSelectMode()">
+                <i class="fas fa-check-square"></i> 多选模式
+              </button>
+            </div>
+          </div>
         </div>
       </aside>
 
       <!-- Main Content -->
       <main class="content">
-        <!-- Toolbar -->
+        <!-- Toolbar (Desktop) -->
         <div class="toolbar">
           <div class="toolbar-count">共 <span id="totalCount">0</span> 个模型</div>
           <div style="display:flex; align-items:center; gap:12px;">

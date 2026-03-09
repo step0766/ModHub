@@ -137,7 +137,9 @@ const resetSearchBtnMobile = document.getElementById("resetSearchBtnMobile");
 const paginationWrap = document.getElementById("pagination");
 const pageSizeInput = document.getElementById("pageSizeInput");
 const totalCountEl = document.getElementById("totalCount");
+const totalCountElMobile = document.getElementById("totalCountMobile");
 const sortOrderSelect = document.getElementById("sortOrder");
+const sortOrderSelectMobile = document.getElementById("sortOrderMobile");
 const favOnlyBtn = document.getElementById("favOnlyBtn");
 const printedOnlyBtn = document.getElementById("printedOnlyBtn");
 const filterModal = document.getElementById("filterModal");
@@ -864,6 +866,7 @@ function render(append = false) {
   const list = getFilteredList();
   const total = list.length;
   if (totalCountEl) totalCountEl.textContent = String(total);
+  if (totalCountElMobile) totalCountElMobile.textContent = String(total);
 
   // Infinite scroll: slice based on displayedCount
   const displayList = list.slice(0, displayedCount);
@@ -1281,6 +1284,14 @@ if (resetSearchBtnMobile) {
 
 if (sortOrderSelect) {
   sortOrderSelect.addEventListener("change", () => {
+    if (sortOrderSelectMobile) sortOrderSelectMobile.value = sortOrderSelect.value;
+    displayedCount = loadIncrement;
+    render();
+  });
+}
+if (sortOrderSelectMobile) {
+  sortOrderSelectMobile.addEventListener("change", () => {
+    if (sortOrderSelect) sortOrderSelect.value = sortOrderSelectMobile.value;
     displayedCount = loadIncrement;
     render();
   });
