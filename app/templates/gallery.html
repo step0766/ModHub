@@ -66,38 +66,48 @@
     <div class="layout">
       <!-- Vertical Sidebar -->
       <aside class="sidebar">
-        <!-- Source Group with Toggle Button -->
-        <div class="sidebar-header">
-          <div class="side-title source-title"><i class="fas fa-globe"></i> 来源</div>
-          <button class="sidebar-toggle" id="sidebarToggle" aria-label="切换侧边栏">
-            <i class="fas fa-chevron-left"></i>
-          </button>
+        <!-- Mobile toggle button -->
+        <div class="sidebar-toggle-mobile" id="sidebarToggleMobile">
+          <i class="fas fa-filter"></i>
+          <span>筛选与分类</span>
+          <i class="fas fa-chevron-down"></i>
         </div>
-        <div id="sourceMenu" class="side-menu">
-          <!-- JS will populate -->
-        </div>
+        
+        <!-- Sidebar content wrapper -->
+        <div class="sidebar-content">
+          <!-- Source Group with Toggle Button -->
+          <div class="sidebar-header">
+            <div class="side-title source-title"><i class="fas fa-globe"></i> 来源</div>
+            <button class="sidebar-toggle" id="sidebarToggle" aria-label="切换侧边栏">
+              <i class="fas fa-chevron-left"></i>
+            </button>
+          </div>
+          <div id="sourceMenu" class="side-menu">
+            <!-- JS will populate -->
+          </div>
 
-        <!-- Filter Group -->
-        <div class="side-title filter-title"><i class="fas fa-filter"></i> 筛选</div>
-        <div class="side-menu">
-          <button class="side-item" type="button" id="favOnlyBtn">
-            <span><i class="far fa-heart"></i> 只看收藏</span>
-          </button>
-          <button class="side-item" type="button" id="printedOnlyBtn">
-            <span><i class="far fa-check-circle"></i> 只看已打印</span>
-          </button>
-        </div>
+          <!-- Filter Group -->
+          <div class="side-title filter-title"><i class="fas fa-filter"></i> 筛选</div>
+          <div class="side-menu">
+            <button class="side-item" type="button" id="favOnlyBtn">
+              <span><i class="far fa-heart"></i> 只看收藏</span>
+            </button>
+            <button class="side-item" type="button" id="printedOnlyBtn">
+              <span><i class="far fa-check-circle"></i> 只看已打印</span>
+            </button>
+          </div>
 
-        <!-- Tags Group -->
-        <div class="side-title tag-title"><i class="fas fa-tags"></i> 分类</div>
-        <div id="filterChips" class="side-menu tag-list">
-          <!-- JS will populate vertical items -->
-        </div>
+          <!-- Tags Group -->
+          <div class="side-title tag-title"><i class="fas fa-tags"></i> 分类</div>
+          <div id="filterChips" class="side-menu tag-list">
+            <!-- JS will populate vertical items -->
+          </div>
 
-        <!-- Authors Group -->
-        <div class="side-title author-title"><i class="fas fa-user"></i> 作者</div>
-        <div id="authorChips" class="side-menu">
-          <!-- JS will populate vertical items -->
+          <!-- Authors Group -->
+          <div class="side-title author-title"><i class="fas fa-user"></i> 作者</div>
+          <div id="authorChips" class="side-menu">
+            <!-- JS will populate vertical items -->
+          </div>
         </div>
       </aside>
 

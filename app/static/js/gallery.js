@@ -1390,8 +1390,9 @@ if (lightbox) {
 // Sidebar toggle functionality
 const sidebar = document.querySelector('.sidebar');
 const sidebarToggle = document.getElementById('sidebarToggle');
+const sidebarToggleMobile = document.getElementById('sidebarToggleMobile');
 
-// Load saved state from localStorage
+// Load saved state from localStorage (desktop only)
 const savedState = localStorage.getItem('sidebarState');
 if (savedState === 'collapsed') {
     sidebar.classList.add('collapsed');
@@ -1406,10 +1407,57 @@ if (sidebarToggle) {
     });
 }
 
+// Mobile sidebar toggle - default collapsed, tap to expand
+let mobileSidebarAutoCollapseTimer = null;
+
+function closeMobileSidebar() {
+  if (window.innerWidth <= 992) {
+    sidebar.classList.remove('expanded');
+  }
+}
+
+if (sidebarToggleMobile) {
+  sidebarToggleMobile.addEventListener('click', () => {
+    sidebar.classList.toggle('expanded');
+    
+    // Clear any existing auto-collapse timer
+    if (mobileSidebarAutoCollapseTimer) {
+      clearTimeout(mobileSidebarAutoCollapseTimer);
+    }
+    
+    // Auto-collapse after 10 seconds if expanded
+    if (sidebar.classList.contains('expanded')) {
+      mobileSidebarAutoCollapseTimer = setTimeout(closeMobileSidebar, 10000);
+    }
+  });
+}
+
+// Close mobile sidebar when clicking outside
+document.addEventListener('click', (e) => {
+  if (window.innerWidth <= 992 && sidebar.classList.contains('expanded')) {
+    if (!sidebar.contains(e.target)) {
+      closeMobileSidebar();
+    }
+  }
+});
+
+// Close mobile sidebar when selecting an item
+document.querySelectorAll('.sidebar .side-item').forEach(item => {
+  item.addEventListener('click', () => {
+    if (window.innerWidth <= 992) {
+      // Delay to allow the selection to register
+      setTimeout(closeMobileSidebar, 300);
+    }
+  });
+});
+
 // Mobile sidebar section collapse functionality
 function initMobileSidebarCollapse() {
   const isMobile = window.innerWidth <= 992;
-  const sideTitles = document.querySelectorAll('.sidebar .side-title');
+  const sidebarContent = document.querySelector('.sidebar-content');
+  if (!sidebarContent) return;
+  
+  const sideTitles = sidebarContent.querySelectorAll('.side-title');
   
   sideTitles.forEach(title => {
     const menu = title.nextElementSibling;
@@ -1448,6 +1496,10 @@ window.addEventListener('resize', () => {
   clearTimeout(resizeTimer);
   resizeTimer = setTimeout(() => {
     initMobileSidebarCollapse();
+    // Close mobile sidebar when switching to desktop
+    if (window.innerWidth > 992) {
+      sidebar.classList.remove('expanded');
+    }
   }, 250);
 });
 
