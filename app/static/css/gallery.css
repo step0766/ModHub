@@ -842,7 +842,15 @@ body.multi-select-mode .card:hover .hover-quick-actions {
   }
 
   .header-search {
-    display: none;
+    display: flex;
+    order: 3;
+    width: 100%;
+    max-width: 100%;
+    margin: 8px 0 0 0;
+  }
+
+  .search-box {
+    width: 100%;
   }
 
   .header-actions {
@@ -866,10 +874,14 @@ body.multi-select-mode .card:hover .hover-quick-actions {
     display: block;
   }
 
-  /* Hide all sidebar sections except the first one (Source) */
-  .sidebar>.side-title:not(:first-child),
-  .sidebar>.side-menu:not(:nth-of-type(2)) {
-    display: none;
+  /* Show all sidebar sections on mobile */
+  .sidebar .side-title,
+  .sidebar .side-menu {
+    display: block;
+  }
+
+  .sidebar-header {
+    display: flex;
   }
 
   .sidebar::-webkit-scrollbar {
