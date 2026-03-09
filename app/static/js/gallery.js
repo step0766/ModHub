@@ -1406,5 +1406,53 @@ if (sidebarToggle) {
     });
 }
 
+// Mobile sidebar section collapse functionality
+function initMobileSidebarCollapse() {
+  const isMobile = window.innerWidth <= 992;
+  const sideTitles = document.querySelectorAll('.sidebar .side-title');
+  
+  sideTitles.forEach(title => {
+    const menu = title.nextElementSibling;
+    if (menu && menu.classList.contains('side-menu')) {
+      // Load saved collapse state
+      const sectionKey = 'sidebarSection_' + title.textContent.trim();
+      const isCollapsed = localStorage.getItem(sectionKey) === 'collapsed';
+      
+      if (isMobile && isCollapsed) {
+        title.classList.add('collapsed');
+        menu.classList.add('collapsed');
+      }
+      
+      // Remove old listeners by cloning
+      const newTitle = title.cloneNode(true);
+      title.parentNode.replaceChild(newTitle, title);
+      
+      newTitle.addEventListener('click', (e) => {
+        if (window.innerWidth <= 992) {
+          e.preventDefault();
+          newTitle.classList.toggle('collapsed');
+          menu.classList.toggle('collapsed');
+          
+          // Save state
+          const collapsed = newTitle.classList.contains('collapsed');
+          localStorage.setItem(sectionKey, collapsed ? 'collapsed' : 'expanded');
+        }
+      });
+    }
+  });
+}
+
+// Re-initialize on resize
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    initMobileSidebarCollapse();
+  }, 250);
+});
+
+// Initialize on load
+setTimeout(initMobileSidebarCollapse, 100);
+
 load();
 setupInfiniteScroll();
