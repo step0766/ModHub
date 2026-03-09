@@ -904,20 +904,22 @@ body.multi-select-mode .card:hover .hover-quick-actions {
   .sidebar-toggle-mobile {
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: space-between;
     width: 100%;
-    padding: 14px 16px;
+    padding: 16px 20px;
     background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
     border: none;
     cursor: pointer;
-    gap: 10px;
-    font-size: 15px;
+    gap: 12px;
+    font-size: 16px;
     font-weight: 600;
     color: #fff;
     -webkit-tap-highlight-color: transparent;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     position: relative;
     overflow: hidden;
+    min-height: 56px;
+    border-radius: 0;
   }
 
   .sidebar-toggle-mobile::before {
@@ -927,48 +929,78 @@ body.multi-select-mode .card:hover .hover-quick-actions {
     left: 0;
     right: 0;
     bottom: 0;
-    background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 100%);
+    background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 100%);
     pointer-events: none;
   }
 
+  .sidebar-toggle-mobile::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: rgba(255, 255, 255, 0.3);
+  }
+
   .sidebar-toggle-mobile:active {
-    transform: scale(0.98);
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+    transform: scale(0.99);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
   }
 
   .sidebar-toggle-mobile .toggle-icon {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
-    background: rgba(255, 255, 255, 0.2);
+    width: 32px;
+    height: 32px;
+    background: rgba(255, 255, 255, 0.25);
     border-radius: 50%;
     transition: transform 0.3s ease, background 0.3s ease;
+    flex-shrink: 0;
+  }
+
+  .sidebar-toggle-mobile .toggle-icon i {
+    font-size: 14px;
   }
 
   .sidebar.expanded .sidebar-toggle-mobile .toggle-icon {
     transform: rotate(180deg);
-    background: rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.35);
   }
 
   .sidebar-toggle-mobile .toggle-text {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
+    flex: 1;
+  }
+
+  .sidebar-toggle-mobile .toggle-text > i {
+    font-size: 18px;
   }
 
   .sidebar-toggle-mobile .toggle-hint {
-    font-size: 12px;
-    font-weight: 400;
-    opacity: 0.85;
+    font-size: 13px;
+    font-weight: 500;
+    opacity: 0.9;
+    background: rgba(255, 255, 255, 0.2);
+    padding: 4px 10px;
+    border-radius: 12px;
+    margin-left: 8px;
   }
 
   .sidebar.expanded .sidebar-toggle-mobile {
     background: var(--bg-card);
     color: var(--text-primary);
     border-bottom: 1px solid var(--border-color);
-    box-shadow: none;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    min-height: 48px;
+    padding: 12px 20px;
+  }
+
+  .sidebar.expanded .sidebar-toggle-mobile::after {
+    display: none;
   }
 
   .sidebar.expanded .sidebar-toggle-mobile .toggle-icon {
