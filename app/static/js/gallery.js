@@ -1462,6 +1462,22 @@ document.querySelectorAll('.sidebar .side-item').forEach(item => {
   });
 });
 
+// Mobile toolbar toggle functionality
+const toolbarToggleMobile = document.getElementById('toolbarToggleMobile');
+const toolbarContent = document.getElementById('toolbarContent');
+
+if (toolbarToggleMobile && toolbarContent) {
+  toolbarToggleMobile.addEventListener('click', () => {
+    toolbarContent.classList.toggle('expanded');
+    
+    // Update hint text
+    const hint = toolbarToggleMobile.querySelector('.toggle-hint');
+    if (hint) {
+      hint.textContent = toolbarContent.classList.contains('expanded') ? '点击收起' : '点击展开';
+    }
+  });
+}
+
 // Mobile sidebar section collapse functionality
 function initMobileSidebarCollapse() {
   const isMobile = window.innerWidth <= 992;

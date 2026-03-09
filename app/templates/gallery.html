@@ -118,10 +118,22 @@
 
       <!-- Main Content -->
       <main class="content">
+        <!-- Mobile Toolbar Toggle -->
+        <div class="toolbar-toggle-mobile" id="toolbarToggleMobile">
+          <span class="toggle-text">
+            <i class="fas fa-sort-amount-down"></i>
+            <span>排序与操作</span>
+            <span class="toggle-hint">点击展开</span>
+          </span>
+          <span class="toggle-icon">
+            <i class="fas fa-chevron-down"></i>
+          </span>
+        </div>
+        
         <!-- Toolbar -->
-        <div class="toolbar">
+        <div class="toolbar" id="toolbarContent">
           <div class="toolbar-count">共 <span id="totalCount">0</span> 个模型</div>
-          <div style="display:flex; align-items:center; gap:12px;">
+          <div class="toolbar-actions">
             <div class="sort-order">
               <label>排序</label>
               <select id="sortOrder">
@@ -130,7 +142,7 @@
                 <option value="similarity">模型相似度倒序</option>
               </select>
             </div>
-            <div id="multiSelectMode" style="display:none; align-items:center; gap:8px;">
+            <div id="multiSelectMode" class="multi-select-mode">
               <span>已选择 <span id="selectedCount">0</span> 个</span>
               <button class="btn btn-danger" id="batchDeleteBtn" onclick="batchDeleteSelected()">
                 <i class="fas fa-trash-alt"></i> 删除
