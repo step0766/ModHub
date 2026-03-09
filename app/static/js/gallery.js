@@ -126,11 +126,14 @@ const statBlueprint = [
   { key: "views", icon: "👁️", label: "浏览" }
 ];
 const kwInput = document.getElementById("kw");
+const kwInputMobile = document.getElementById("kwMobile");
 const filterChips = document.getElementById("filterChips");
 const authorChips = document.getElementById("authorChips");
 const sourceMenu = document.getElementById("sourceMenu");
 const clearBtn = document.getElementById("clearBtn");
+const clearBtnMobile = document.getElementById("clearBtnMobile");
 const resetSearchBtn = document.getElementById("resetSearchBtn");
+const resetSearchBtnMobile = document.getElementById("resetSearchBtnMobile");
 const paginationWrap = document.getElementById("pagination");
 const pageSizeInput = document.getElementById("pageSizeInput");
 const totalCountEl = document.getElementById("totalCount");
@@ -1217,43 +1220,58 @@ function formatDate(isoString) {
 }
 
 if (kwInput) {
-  kwInput.addEventListener("input", () => { displayedCount = loadIncrement; render(); });
+  kwInput.addEventListener("input", () => { 
+    displayedCount = loadIncrement; 
+    render(); 
+  });
+}
+if (kwInputMobile) {
+  kwInputMobile.addEventListener("input", () => { 
+    if (kwInput) kwInput.value = kwInputMobile.value;
+    displayedCount = loadIncrement; 
+    render(); 
+  });
 }
 if (clearBtn && kwInput) {
   clearBtn.addEventListener("click", () => {
     kwInput.value = "";
+    if (kwInputMobile) kwInputMobile.value = "";
+    displayedCount = loadIncrement;
+    render();
+  });
+}
+if (clearBtnMobile && kwInputMobile) {
+  clearBtnMobile.addEventListener("click", () => {
+    kwInputMobile.value = "";
+    if (kwInput) kwInput.value = "";
     displayedCount = loadIncrement;
     render();
   });
 }
 
-// Reset all filters button
+function resetAllFilters() {
+  if (kwInput) kwInput.value = "";
+  if (kwInputMobile) kwInputMobile.value = "";
+  activeTag = "";
+  activeAuthor = "";
+  activeSource = "";
+  onlyFavorites = false;
+  onlyPrinted = false;
+  isTagsExpanded = false;
+  isAuthorsExpanded = false;
+  displayedCount = loadIncrement;
+  syncFlagFilterButtons();
+  renderFilters();
+  renderAuthorFilters();
+  renderSourceMenu();
+  render();
+}
+
 if (resetSearchBtn) {
-  resetSearchBtn.addEventListener("click", () => {
-    // Clear search input
-    if (kwInput) kwInput.value = "";
-
-    // Clear filters
-    activeTag = "";
-    activeAuthor = "";
-    activeSource = "";
-    onlyFavorites = false;
-    onlyPrinted = false;
-
-    // Collapse expanded lists
-    isTagsExpanded = false;
-    isAuthorsExpanded = false;
-
-    // Reset display count
-    displayedCount = loadIncrement;
-
-    // Update UI
-    syncFlagFilterButtons();
-    renderFilters();
-    renderAuthorFilters();
-    renderSourceMenu();
-    render();
-  });
+  resetSearchBtn.addEventListener("click", resetAllFilters);
+}
+if (resetSearchBtnMobile) {
+  resetSearchBtnMobile.addEventListener("click", resetAllFilters);
 }
 
 // Removed legacy reset button listener that used non-existent currentPage
@@ -1461,22 +1479,6 @@ document.querySelectorAll('.sidebar .side-item').forEach(item => {
     }
   });
 });
-
-// Mobile toolbar toggle functionality
-const toolbarToggleMobile = document.getElementById('toolbarToggleMobile');
-const toolbarContent = document.getElementById('toolbarContent');
-
-if (toolbarToggleMobile && toolbarContent) {
-  toolbarToggleMobile.addEventListener('click', () => {
-    toolbarContent.classList.toggle('expanded');
-    
-    // Update hint text
-    const hint = toolbarToggleMobile.querySelector('.toggle-hint');
-    if (hint) {
-      hint.textContent = toolbarContent.classList.contains('expanded') ? '点击收起' : '点击展开';
-    }
-  });
-}
 
 // Mobile sidebar section collapse functionality
 function initMobileSidebarCollapse() {

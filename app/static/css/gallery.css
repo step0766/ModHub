@@ -170,24 +170,6 @@ header {
   display: block;
 }
 
-/* Mobile toolbar toggle - hidden on desktop */
-.toolbar-toggle-mobile {
-  display: none;
-}
-
-/* Toolbar actions - desktop layout */
-.toolbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.multi-select-mode {
-  display: none;
-  align-items: center;
-  gap: 8px;
-}
-
 /* Sidebar Header */
 .sidebar-header {
   display: flex;
@@ -869,23 +851,38 @@ body.multi-select-mode .card:hover .hover-quick-actions {
     min-width: auto;
   }
 
+  /* Hide desktop search on mobile */
   .header-search {
-    display: flex;
-    order: 3;
-    width: 100%;
-    max-width: 100%;
-    margin: 8px 0 0 0;
+    display: none;
   }
 
-  .search-box {
+  /* Mobile search section in sidebar */
+  .mobile-search-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    background: var(--bg-hover);
+    border-radius: 12px;
+    margin-bottom: 12px;
+  }
+
+  .mobile-search-section .search-box {
     width: 100%;
     height: 44px;
     border-radius: 22px;
     padding: 0 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
   }
 
-  .search-box__input {
+  .mobile-search-section .search-box__input {
     font-size: 16px;
+  }
+
+  .mobile-search-section .btn {
+    width: 100%;
+    justify-content: center;
   }
 
   .header-actions {
@@ -1105,144 +1102,38 @@ body.multi-select-mode .card:hover .hover-quick-actions {
     padding-bottom: 80px;
   }
 
-  /* Mobile Toolbar Toggle Button */
-  .toolbar-toggle-mobile {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    padding: 12px 16px;
-    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-    border: none;
-    cursor: pointer;
-    gap: 10px;
-    font-size: 14px;
-    font-weight: 600;
-    color: #fff;
-    -webkit-tap-highlight-color: transparent;
-    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
-    position: relative;
-    overflow: hidden;
-    border-radius: 8px;
-    margin-bottom: 12px;
-  }
-
-  .toolbar-toggle-mobile::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 100%);
-    pointer-events: none;
-  }
-
-  .toolbar-toggle-mobile:active {
-    transform: scale(0.98);
-    box-shadow: 0 1px 4px rgba(99, 102, 241, 0.4);
-  }
-
-  .toolbar-toggle-mobile .toggle-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 22px;
-    height: 22px;
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 50%;
-    transition: transform 0.3s ease, background 0.3s ease;
-  }
-
-  .toolbar.expanded + .toolbar-toggle-mobile .toggle-icon,
-  .content.toolbar-expanded .toolbar-toggle-mobile .toggle-icon {
-    transform: rotate(180deg);
-    background: rgba(255, 255, 255, 0.3);
-  }
-
-  .toolbar-toggle-mobile .toggle-text {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .toolbar-toggle-mobile .toggle-hint {
-    font-size: 11px;
-    font-weight: 400;
-    opacity: 0.85;
-  }
-
-  /* Toolbar - collapsible on mobile */
+  /* Toolbar */
   .toolbar {
-    display: none;
     flex-direction: column;
     align-items: stretch;
-    gap: 12px;
-    background: var(--bg-card);
+    gap: 10px;
+    position: sticky;
+    top: 0;
+    background: var(--bg-page);
+    padding: 8px 0;
+    margin: -12px -12px 12px -12px;
     padding: 12px;
-    border-radius: 8px;
-    border: 1px solid var(--border-color);
-    margin-bottom: 12px;
-  }
-
-  .toolbar.expanded {
-    display: flex;
+    z-index: 10;
   }
 
   .toolbar-count {
-    font-size: 14px;
-    color: var(--text-primary);
-    font-weight: 500;
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--border-color);
-  }
-
-  .toolbar-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+    font-size: 13px;
+    color: var(--text-secondary);
   }
 
   .sort-order {
-    display: flex;
-    align-items: center;
+    width: 100%;
     justify-content: space-between;
-    font-size: 14px;
-    gap: 8px;
-  }
-
-  .sort-order label {
-    white-space: nowrap;
-    font-weight: 500;
+    font-size: 13px;
   }
 
   .sort-order select {
-    padding: 10px 12px;
+    padding: 8px 12px;
     font-size: 14px;
     border-radius: 8px;
-    min-height: 44px;
+    min-height: 40px;
     flex: 1;
-  }
-
-  .multi-select-mode {
-    display: none;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px 12px;
-    background: var(--bg-hover);
-    border-radius: 8px;
-  }
-
-  .multi-select-mode span {
-    font-size: 14px;
-    font-weight: 500;
-  }
-
-  #multiSelectBtn {
-    width: 100%;
-    justify-content: center;
-    padding: 12px;
-    font-size: 14px;
+    margin-left: 8px;
   }
 
   /* Grid */
