@@ -126,20 +126,15 @@ const statBlueprint = [
   { key: "views", icon: "👁️", label: "浏览" }
 ];
 const kwInput = document.getElementById("kw");
-const kwInputMobile = document.getElementById("kwMobile");
 const filterChips = document.getElementById("filterChips");
 const authorChips = document.getElementById("authorChips");
 const sourceMenu = document.getElementById("sourceMenu");
 const clearBtn = document.getElementById("clearBtn");
-const clearBtnMobile = document.getElementById("clearBtnMobile");
 const resetSearchBtn = document.getElementById("resetSearchBtn");
-const resetSearchBtnMobile = document.getElementById("resetSearchBtnMobile");
 const paginationWrap = document.getElementById("pagination");
 const pageSizeInput = document.getElementById("pageSizeInput");
 const totalCountEl = document.getElementById("totalCount");
-const totalCountElMobile = document.getElementById("totalCountMobile");
 const sortOrderSelect = document.getElementById("sortOrder");
-const sortOrderSelectMobile = document.getElementById("sortOrderMobile");
 const favOnlyBtn = document.getElementById("favOnlyBtn");
 const printedOnlyBtn = document.getElementById("printedOnlyBtn");
 const filterModal = document.getElementById("filterModal");
@@ -1228,25 +1223,9 @@ if (kwInput) {
     render(); 
   });
 }
-if (kwInputMobile) {
-  kwInputMobile.addEventListener("input", () => { 
-    if (kwInput) kwInput.value = kwInputMobile.value;
-    displayedCount = loadIncrement; 
-    render(); 
-  });
-}
 if (clearBtn && kwInput) {
   clearBtn.addEventListener("click", () => {
     kwInput.value = "";
-    if (kwInputMobile) kwInputMobile.value = "";
-    displayedCount = loadIncrement;
-    render();
-  });
-}
-if (clearBtnMobile && kwInputMobile) {
-  clearBtnMobile.addEventListener("click", () => {
-    kwInputMobile.value = "";
-    if (kwInput) kwInput.value = "";
     displayedCount = loadIncrement;
     render();
   });
@@ -1254,7 +1233,6 @@ if (clearBtnMobile && kwInputMobile) {
 
 function resetAllFilters() {
   if (kwInput) kwInput.value = "";
-  if (kwInputMobile) kwInputMobile.value = "";
   activeTag = "";
   activeAuthor = "";
   activeSource = "";
@@ -1273,25 +1251,9 @@ function resetAllFilters() {
 if (resetSearchBtn) {
   resetSearchBtn.addEventListener("click", resetAllFilters);
 }
-if (resetSearchBtnMobile) {
-  resetSearchBtnMobile.addEventListener("click", resetAllFilters);
-}
-
-// Removed legacy reset button listener that used non-existent currentPage
-
-
-// Removed pageSize input - using infinite scroll now
 
 if (sortOrderSelect) {
   sortOrderSelect.addEventListener("change", () => {
-    if (sortOrderSelectMobile) sortOrderSelectMobile.value = sortOrderSelect.value;
-    displayedCount = loadIncrement;
-    render();
-  });
-}
-if (sortOrderSelectMobile) {
-  sortOrderSelectMobile.addEventListener("change", () => {
-    if (sortOrderSelect) sortOrderSelect.value = sortOrderSelectMobile.value;
     displayedCount = loadIncrement;
     render();
   });
