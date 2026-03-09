@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="/static/css/reset.css">
   <link rel="stylesheet" href="/static/css/components.css?v=1.3">
   <link rel="stylesheet" href="/static/css/gallery.css?v=1.3">
-  <link rel="stylesheet" href="/static/css/manual_import.css?v=5.3">
+  <link rel="stylesheet" href="/static/css/manual_import.css?v=5.6">
 </head>
 
 <body>
@@ -112,6 +112,7 @@
               <select id="sortOrder">
                 <option value="collected" selected>采集时间倒序</option>
                 <option value="published">发布时间倒序</option>
+                <option value="similarity">模型相似度倒序</option>
               </select>
             </div>
             <div id="multiSelectMode" style="display:none; align-items:center; gap:8px;">
@@ -276,42 +277,47 @@
     </div>
   </div>
   <div id="batchFolderModal" class="manual-modal" aria-hidden="true">
-    <div class="manual-modal__inner" role="dialog" aria-modal="true" aria-labelledby="batchFolderTitle" style="width:min(900px,94vw);">
-      <div class="manual-modal__header">
-        <div id="batchFolderTitle" class="manual-modal__title">批量文件夹导入</div>
-        <button class="manual-modal__close" type="button" data-batch-folder-close>×</button>
-      </div>
-      <div class="manual-form">
-        <div class="manual-row">
-          <label>选择模型文件夹</label>
-          <div class="manual-inline">
-            <input type="file" id="batchFolderPicker" webkitdirectory multiple style="display:none">
-            <button class="manual-btn" type="button" id="batchSelectFolderBtn">
-              <i class="fas fa-folder-open"></i> 添加文件夹
-            </button>
-            <button class="manual-btn" type="button" id="batchClearFoldersBtn" style="display:none;">
-              <i class="fas fa-trash"></i> 清空列表
-            </button>
-          </div>
-          <div class="manual-help">点击按钮添加文件夹，或将多个文件夹直接拖放到下方区域</div>
+    <div class="batch-modal__inner" role="dialog" aria-modal="true" aria-labelledby="batchFolderTitle">
+      <div class="batch-modal__header">
+        <div id="batchFolderTitle" class="batch-modal__title">
+          <i class="fas fa-folder-open"></i>
+          <span>批量文件夹导入</span>
         </div>
-        <div id="batchDropZone" class="batch-drop-zone">
+        <button class="batch-modal__close" type="button" data-batch-folder-close>
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="batch-modal__body">
+        <div id="batchDropZone" class="batch-drop-zone" style="position:relative;">
+          <div id="batchParsingOverlay" class="batch-parsing-overlay hidden">
+            <div class="batch-parsing-spinner"></div>
+            <div class="batch-parsing-text">正在解析 3MF 文件</div>
+            <div id="batchParsingDetail" class="batch-parsing-detail">请稍候...</div>
+            <div class="batch-parsing-progress">
+              <div id="batchParsingProgressBar" class="batch-parsing-progress-bar indeterminate"></div>
+            </div>
+          </div>
           <div class="batch-drop-zone__content">
             <i class="fas fa-cloud-upload-alt"></i>
             <div class="batch-drop-zone__text">拖放文件夹到此处</div>
-            <div class="batch-drop-zone__hint">支持同时拖放多个文件夹</div>
+            <div class="batch-drop-zone__hint">支持同时拖放多个包含 .3mf 文件的文件夹</div>
           </div>
         </div>
         <div id="batchFolderPreview" class="batch-folder-preview hidden">
+          <div class="batch-preview__header">
+            <div class="batch-preview__stats">
+              <span class="batch-stat"><i class="fas fa-cube"></i> <strong id="batchFolderCount">0</strong> 个模型</span>
+              <span class="batch-stat"><i class="fas fa-file"></i> <strong id="batchModelCount">0</strong> 个文件</span>
+            </div>
+            <button class="manual-btn" type="button" id="batchClearFoldersBtn">
+              <i class="fas fa-trash"></i> 清空
+            </button>
+          </div>
           <div id="batchImportProgress" class="batch-import-progress hidden">
             <div class="batch-progress-bar">
               <div id="batchProgressBar" class="batch-progress-fill"></div>
             </div>
             <div id="batchProgressText" class="batch-progress-text"></div>
-          </div>
-
-          <div class="batch-folder-summary">
-            <span>共识别 <strong id="batchFolderCount">0</strong> 个模型，<strong id="batchModelCount">0</strong> 个文件</span>
           </div>
           <div id="batchFolderList" class="batch-folder-list"></div>
           <div class="batch-folder-actions">
@@ -322,10 +328,11 @@
           </div>
         </div>
       </div>
+      <input type="file" id="batchFolderPicker" webkitdirectory multiple style="display:none">
     </div>
   </div>
   <script src="/static/js/gallery.js?v=5.2" defer></script>
-  <script src="/static/js/manual_import.js?v=5.3" defer></script>
+  <script src="/static/js/manual_import.js?v=5.8" defer></script>
   /body>
 
 </html>

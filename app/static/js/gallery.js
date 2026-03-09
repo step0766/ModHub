@@ -213,8 +213,156 @@ function selectAuthor(name) {
   render();
 }
 
+function calculateSimilarity(str1, str2) {
+  if (!str1 || !str2) return 0;
+  const s1 = str1.toLowerCase().trim();
+  const s2 = str2.toLowerCase().trim();
+  if (s1 === s2) return 1;
+  
+  const len1 = s1.length;
+  const len2 = s2.length;
+  if (len1 === 0 || len2 === 0) return 0;
+  
+  const matrix = [];
+  for (let i = 0; i <= len1; i++) {
+    matrix[i] = [i];
+  }
+  for (let j = 0; j <= len2; j++) {
+    matrix[0][j] = j;
+  }
+  
+  for (let i = 1; i <= len1; i++) {
+    for (let j = 1; j <= len2; j++) {
+      const cost = s1[i - 1] === s2[j - 1] ? 0 : 1;
+      matrix[i][j] = Math.min(
+        matrix[i - 1][j] + 1,
+        matrix[i][j - 1] + 1,
+        matrix[i - 1][j - 1] + cost
+      );
+    }
+  }
+  
+  const maxLen = Math.max(len1, len2);
+  const distance = matrix[len1][len2];
+  return (maxLen - distance) / maxLen;
+}
+
+const SIMILARITY_THRESHOLD = 0.7;
+
+function buildSimilarityGroups(list) {
+  const n = list.length;
+  const similarityMatrix = new Map();
+  
+  for (let i = 0; i < n; i++) {
+    const m1 = list[i];
+    const title1 = (m1?.title || "").trim().toLowerCase();
+    
+    for (let j = i + 1; j < n; j++) {
+      const m2 = list[j];
+      const title2 = (m2?.title || "").trim().toLowerCase();
+      
+      if (!title1 || !title2) {
+        continue;
+      }
+      
+      const sim = calculateSimilarity(title1, title2);
+      if (sim >= SIMILARITY_THRESHOLD) {
+        if (!similarityMatrix.has(i)) similarityMatrix.set(i, new Map());
+        if (!similarityMatrix.has(j)) similarityMatrix.set(j, new Map());
+        similarityMatrix.get(i).set(j, sim);
+        similarityMatrix.get(j).set(i, sim);
+      }
+    }
+  }
+  
+  const visited = new Set();
+  const groups = [];
+  
+  for (let i = 0; i < n; i++) {
+    if (visited.has(i)) continue;
+    
+    const group = { indices: [i], maxSim: 0 };
+    visited.add(i);
+    
+    const queue = [i];
+    while (queue.length > 0) {
+      const current = queue.shift();
+      const neighbors = similarityMatrix.get(current);
+      if (neighbors) {
+        for (const [neighbor, sim] of neighbors) {
+          if (!visited.has(neighbor)) {
+            visited.add(neighbor);
+            queue.push(neighbor);
+            group.indices.push(neighbor);
+            if (sim > group.maxSim) group.maxSim = sim;
+          }
+        }
+      }
+    }
+    
+    groups.push(group);
+  }
+  
+  return { groups, similarityMatrix };
+}
+
+function sortGroupIndices(indices, similarityMatrix, list) {
+  if (indices.length <= 1) return indices;
+  
+  const sorted = [indices[0]];
+  const remaining = new Set(indices.slice(1));
+  
+  while (remaining.size > 0) {
+    let bestNext = null;
+    let bestSim = -1;
+    const lastIdx = sorted[sorted.length - 1];
+    const neighbors = similarityMatrix.get(lastIdx);
+    
+    if (neighbors) {
+      for (const idx of remaining) {
+        const sim = neighbors.get(idx) || 0;
+        if (sim > bestSim) {
+          bestSim = sim;
+          bestNext = idx;
+        }
+      }
+    }
+    
+    if (bestNext === null) {
+      bestNext = remaining.values().next().value;
+    }
+    
+    sorted.push(bestNext);
+    remaining.delete(bestNext);
+  }
+  
+  return sorted;
+}
+
 function sortModelsDesc(list) {
   const sortMode = sortOrderSelect?.value || "collected";
+  
+  if (sortMode === "similarity") {
+    const { groups, similarityMatrix } = buildSimilarityGroups(list);
+    
+    groups.sort((a, b) => {
+      if (a.maxSim !== b.maxSim) return b.maxSim - a.maxSim;
+      return a.indices.length > 0 && b.indices.length > 0 
+        ? (list[a.indices[0]]?.title || "").localeCompare(list[b.indices[0]]?.title || "")
+        : 0;
+    });
+    
+    const result = [];
+    for (const group of groups) {
+      const sortedIndices = sortGroupIndices(group.indices, similarityMatrix, list);
+      for (const idx of sortedIndices) {
+        result.push(list[idx]);
+      }
+    }
+    
+    return result;
+  }
+  
   return list.slice().sort((a, b) => {
     const aPrimary = sortMode === "published" ? a?.publishedAt : a?.collectedAt;
     const bPrimary = sortMode === "published" ? b?.publishedAt : b?.collectedAt;

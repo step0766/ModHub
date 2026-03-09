@@ -573,7 +573,6 @@
   if (!batchModal) return;
 
   const batchBtn = document.getElementById('batchFolderImportBtn');
-  const selectFolderBtn = document.getElementById('batchSelectFolderBtn');
   const clearFoldersBtn = document.getElementById('batchClearFoldersBtn');
   const folderPicker = document.getElementById('batchFolderPicker');
   const dropZone = document.getElementById('batchDropZone');
@@ -587,8 +586,32 @@
   const progressBar = document.getElementById('batchProgressBar');
   const progressText = document.getElementById('batchProgressText');
   const closers = batchModal.querySelectorAll('[data-batch-folder-close]');
+  const parsingOverlay = document.getElementById('batchParsingOverlay');
+  const parsingDetail = document.getElementById('batchParsingDetail');
+  const parsingProgressBar = document.getElementById('batchParsingProgressBar');
 
   let folderModels = [];
+
+  function showParsingOverlay(detail) {
+    if (parsingOverlay) parsingOverlay.classList.remove('hidden');
+    if (parsingDetail) parsingDetail.textContent = detail || '请稍候...';
+    if (parsingProgressBar) {
+      parsingProgressBar.classList.add('indeterminate');
+      parsingProgressBar.style.width = '30%';
+    }
+  }
+
+  function hideParsingOverlay() {
+    if (parsingOverlay) parsingOverlay.classList.add('hidden');
+  }
+
+  function updateParsingProgress(detail, percent) {
+    if (parsingDetail) parsingDetail.textContent = detail || '';
+    if (parsingProgressBar && typeof percent === 'number') {
+      parsingProgressBar.classList.remove('indeterminate');
+      parsingProgressBar.style.width = `${percent}%`;
+    }
+  }
 
   function setMsg(text, isError, isSuccess) {
     if (!msgEl) return;
@@ -703,6 +726,7 @@
         profileTitle: item.profileTitle || '',
         designer: item.designer || '',
         profileId: item.profileId || '',
+        coverUrl: item.coverUrl || parsedItems.coverUrl || '',
         hasMissingMetadata: hasMissingMetadata,
         pendingDecision: hasMissingMetadata,
         sessionId: sessionId,
@@ -743,14 +767,39 @@
         if (title1 && title2 && designer1 && designer2 && designer1 === designer2) {
           const similarity = calculateSimilarity(title1, title2);
           if (similarity >= SIMILARITY_THRESHOLD) {
-            g1.similarGroupIndices.push({ index: j, name: g2.name, similarity: similarity });
-            g2.similarGroupIndices.push({ index: i, name: g1.name, similarity: similarity });
+            g1.similarGroupIndices.push({ index: j, name: g2.name, similarity: similarity, coverUrl: g2.coverUrl || '' });
+            g2.similarGroupIndices.push({ index: i, name: g1.name, similarity: similarity, coverUrl: g1.coverUrl || '' });
           }
         }
       }
     }
 
     return groups;
+  }
+
+  async function checkExistingSimilarModels(models) {
+    const titles = models.map(m => m.name).filter(n => n && n !== '未命名模型');
+    if (titles.length === 0) return;
+
+    try {
+      const res = await fetch('/api/gallery/check-similar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ titles }),
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      const similarResults = data.similar || [];
+      
+      similarResults.forEach((result) => {
+        const modelIdx = models.findIndex(m => m.name === result.newTitle);
+        if (modelIdx !== -1) {
+          models[modelIdx].existingSimilar = result.similarModels;
+        }
+      });
+    } catch (err) {
+      console.error('检测相似模型失败:', err);
+    }
   }
 
   function renderPreview() {
@@ -766,17 +815,46 @@
       const header = document.createElement('div');
       header.className = 'batch-folder-header';
 
+      if (model.coverUrl) {
+        const coverImg = document.createElement('img');
+        coverImg.className = 'batch-folder-cover';
+        coverImg.src = model.coverUrl;
+        coverImg.alt = '';
+        header.appendChild(coverImg);
+      } else {
+        const coverPlaceholder = document.createElement('div');
+        coverPlaceholder.className = 'batch-folder-cover';
+        coverPlaceholder.style.cssText = 'display:flex;align-items:center;justify-content:center;background:var(--bg-hover);';
+        coverPlaceholder.innerHTML = '<i class="fas fa-cube" style="color:var(--text-tertiary);font-size:24px;"></i>';
+        header.appendChild(coverPlaceholder);
+      }
+
+      const infoEl = document.createElement('div');
+      infoEl.className = 'batch-folder-info';
+
       const nameEl = document.createElement('div');
       nameEl.className = 'batch-folder-name';
-      nameEl.innerHTML = `<i class="fas fa-cube"></i> ${model.name}`;
+      nameEl.textContent = model.name;
+      infoEl.appendChild(nameEl);
+
+      const metaEl = document.createElement('div');
+      metaEl.className = 'batch-folder-meta';
 
       const countEl = document.createElement('span');
       countEl.className = 'batch-folder-count';
       countEl.textContent = `${model.files.length} 个配置`;
+      metaEl.appendChild(countEl);
+
+      const statusEl = document.createElement('span');
+      statusEl.className = 'batch-folder-status';
+      statusEl.id = `batch-status-${idx}`;
+      metaEl.appendChild(statusEl);
+
+      infoEl.appendChild(metaEl);
+      header.appendChild(infoEl);
 
       const removeBtn = document.createElement('button');
-      removeBtn.className = 'manual-btn danger';
-      removeBtn.style.cssText = 'padding:2px 8px;font-size:12px;';
+      removeBtn.className = 'batch-folder-remove';
       removeBtn.innerHTML = '<i class="fas fa-times"></i>';
       removeBtn.title = '移除此模型';
       removeBtn.addEventListener('click', async (e) => {
@@ -794,9 +872,6 @@
         if (submitBtn) submitBtn.disabled = folderModels.length === 0;
         if (clearFoldersBtn) clearFoldersBtn.style.display = folderModels.length > 0 ? '' : 'none';
       });
-
-      header.appendChild(nameEl);
-      header.appendChild(countEl);
       header.appendChild(removeBtn);
 
       const filesEl = document.createElement('div');
@@ -814,10 +889,6 @@
         more.textContent = `+${model.files.length - 5} 更多`;
         filesEl.appendChild(more);
       }
-
-      const statusEl = document.createElement('div');
-      statusEl.className = 'batch-folder-status';
-      statusEl.id = `batch-status-${idx}`;
 
       item.appendChild(header);
       item.appendChild(filesEl);
@@ -870,6 +941,46 @@
           }
         });
         
+        model.similarGroupIndices.forEach((similar) => {
+          const targetModel = folderModels[similar.index];
+          if (targetModel && targetModel.mergedWith === undefined) {
+            const singleBtn = document.createElement('button');
+            singleBtn.className = 'manual-btn';
+            singleBtn.style.cssText = 'display:inline-flex;align-items:center;gap:8px;';
+            
+            if (similar.coverUrl) {
+              const btnImg = document.createElement('img');
+              btnImg.src = similar.coverUrl;
+              btnImg.alt = '';
+              btnImg.style.cssText = 'width:24px;height:24px;border-radius:4px;object-fit:cover;border:1px solid var(--border-color);';
+              singleBtn.appendChild(btnImg);
+            } else {
+              const btnIcon = document.createElement('i');
+              btnIcon.className = 'fas fa-cube';
+              btnIcon.style.fontSize = '14px';
+              singleBtn.appendChild(btnIcon);
+            }
+            const btnText = document.createElement('span');
+            btnText.textContent = `${similar.name} 合并到此`;
+            singleBtn.appendChild(btnText);
+            
+            singleBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              model.files.push(...targetModel.files);
+              targetModel.mergedWith = idx;
+              model.similarGroupIndices = model.similarGroupIndices.filter(s => s.index !== similar.index);
+              if (model.similarGroupIndices.length === 0) {
+                similarEl.remove();
+              } else {
+                const newNames = model.similarGroupIndices.map(s => `"${s.name}"`).join('、');
+                infoEl.innerHTML = `<i class="fas fa-code-branch"></i> 检测到相似模型：${newNames}`;
+              }
+              renderPreview();
+            });
+            btnGroup.appendChild(singleBtn);
+          }
+        });
+        
         const skipBtn = document.createElement('button');
         skipBtn.className = 'manual-btn';
         skipBtn.textContent = '保持独立';
@@ -883,6 +994,92 @@
         similarEl.appendChild(infoEl);
         similarEl.appendChild(btnGroup);
         item.appendChild(similarEl);
+      }
+
+      if (model.existingSimilar && model.existingSimilar.length > 0 && !model.mergedWith) {
+        const existingEl = document.createElement('div');
+        existingEl.className = 'batch-folder-existing';
+        existingEl.id = `batch-existing-${idx}`;
+        
+        const infoEl = document.createElement('div');
+        infoEl.className = 'batch-folder-existing-info';
+        infoEl.innerHTML = `<i class="fas fa-database"></i> 模型库中已存在相似模型`;
+        
+        const listEl = document.createElement('div');
+        listEl.className = 'batch-folder-existing-list';
+        
+        model.existingSimilar.forEach((existing) => {
+          const row = document.createElement('div');
+          row.className = 'batch-folder-existing-item';
+          
+          if (existing.coverUrl) {
+            const img = document.createElement('img');
+            img.className = 'batch-folder-existing-cover';
+            img.src = existing.coverUrl;
+            img.alt = '';
+            row.appendChild(img);
+          } else {
+            const placeholder = document.createElement('div');
+            placeholder.className = 'batch-folder-existing-cover';
+            placeholder.style.cssText = 'display:flex;align-items:center;justify-content:center;background:var(--bg-hover);';
+            placeholder.innerHTML = '<i class="fas fa-cube" style="color:var(--text-tertiary);font-size:14px;"></i>';
+            row.appendChild(placeholder);
+          }
+          
+          const info = document.createElement('div');
+          info.className = 'batch-folder-existing-meta';
+          
+          const titleEl = document.createElement('div');
+          titleEl.className = 'batch-folder-existing-title';
+          titleEl.textContent = existing.title;
+          info.appendChild(titleEl);
+          
+          const simEl = document.createElement('div');
+          simEl.className = 'batch-folder-existing-similarity';
+          simEl.textContent = `相似度 ${Math.round(existing.similarity * 100)}%`;
+          info.appendChild(simEl);
+          
+          row.appendChild(info);
+          
+          const linkBtn = document.createElement('a');
+          linkBtn.className = 'manual-btn';
+          linkBtn.href = `/model/${existing.dir}`;
+          linkBtn.target = '_blank';
+          linkBtn.innerHTML = '<i class="fas fa-external-link-alt"></i>';
+          linkBtn.title = '查看已有模型';
+          row.appendChild(linkBtn);
+          
+          listEl.appendChild(row);
+        });
+        
+        const actionEl = document.createElement('div');
+        actionEl.className = 'batch-folder-existing-actions';
+        
+        const keepBtn = document.createElement('button');
+        keepBtn.className = 'manual-btn primary';
+        keepBtn.innerHTML = '<i class="fas fa-plus"></i> 仍然添加';
+        keepBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          model.existingSimilar = null;
+          existingEl.remove();
+        });
+        actionEl.appendChild(keepBtn);
+        
+        const skipBtn = document.createElement('button');
+        skipBtn.className = 'manual-btn danger';
+        skipBtn.innerHTML = '<i class="fas fa-times"></i> 跳过此模型';
+        skipBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          model.mergedWith = -1;
+          existingEl.remove();
+          renderPreview();
+        });
+        actionEl.appendChild(skipBtn);
+        
+        existingEl.appendChild(infoEl);
+        existingEl.appendChild(listEl);
+        existingEl.appendChild(actionEl);
+        item.appendChild(existingEl);
       }
 
       if (model.hasMissingMetadata && model.pendingDecision) {
@@ -1083,7 +1280,6 @@
     const activeModels = folderModels.filter(m => m.mergedWith === undefined);
     if (!activeModels.length) return;
     if (submitBtn) submitBtn.disabled = true;
-    if (selectFolderBtn) selectFolderBtn.disabled = true;
     if (clearFoldersBtn) clearFoldersBtn.disabled = true;
     if (progressEl) progressEl.classList.remove('hidden');
     setMsg('开始批量导入...');
@@ -1122,7 +1318,6 @@
       }, 1500);
     } else {
       if (submitBtn) submitBtn.disabled = false;
-      if (selectFolderBtn) selectFolderBtn.disabled = false;
       if (clearFoldersBtn) clearFoldersBtn.disabled = false;
     }
   }
@@ -1133,8 +1328,7 @@
     if (e.target === batchModal) closeModal();
   });
 
-  if (selectFolderBtn && folderPicker) {
-    selectFolderBtn.addEventListener('click', () => folderPicker.click());
+  if (folderPicker) {
     folderPicker.addEventListener('change', async () => {
       const files = folderPicker.files;
       if (!files || !files.length) return;
@@ -1145,12 +1339,16 @@
         return;
       }
 
-      setMsg(`正在解析 ${all3mfFiles.length} 个 3MF 文件...`, false, true);
-      if (selectFolderBtn) selectFolderBtn.disabled = true;
+      showParsingOverlay(`正在解析 ${all3mfFiles.length} 个 3MF 文件...`);
 
       try {
+        updateParsingProgress(`正在上传 ${all3mfFiles.length} 个文件...`, 10);
+        
         const fd = new FormData();
         all3mfFiles.forEach((f) => fd.append('files', f));
+        
+        updateParsingProgress('正在解析 3MF 元数据...', 30);
+        
         const res = await fetch('/api/manual/3mf/parse', { method: 'POST', body: fd });
         if (!res.ok) {
           throw new Error('解析失败');
@@ -1162,6 +1360,8 @@
           throw new Error('未解析到有效内容');
         }
 
+        updateParsingProgress('正在智能聚合模型...', 80);
+
         const parsedItems = draft.items.map((item, idx) => ({
           ...item,
           _originalFile: all3mfFiles[idx],
@@ -1169,13 +1369,16 @@
 
         const groups = groupByMetadata(parsedItems, draft.sessionId);
         
+        await checkExistingSimilarModels(groups);
+        
         folderModels = folderModels.concat(groups);
         renderPreview();
+        hideParsingOverlay();
         setMsg(`已智能聚合为 ${groups.length} 个模型（共 ${all3mfFiles.length} 个3MF）`, false, true);
       } catch (err) {
+        hideParsingOverlay();
         setMsg('解析失败: ' + err.message, true);
       } finally {
-        if (selectFolderBtn) selectFolderBtn.disabled = false;
         folderPicker.value = '';
       }
     });
@@ -1246,7 +1449,7 @@
         return;
       }
 
-      setMsg('正在扫描文件夹...');
+      showParsingOverlay('正在扫描文件夹...');
       
       try {
         const folderFilesArrays = await Promise.all(folderPromises);
@@ -1258,11 +1461,12 @@
         });
 
         if (all3mfFiles.length === 0) {
+          hideParsingOverlay();
           setMsg('拖放的文件夹中没有找到 .3mf 文件', true);
           return;
         }
 
-        setMsg(`正在解析 ${all3mfFiles.length} 个 3MF 文件...`, false, true);
+        updateParsingProgress(`正在解析 ${all3mfFiles.length} 个 3MF 文件...`, 20);
 
         const fd = new FormData();
         all3mfFiles.forEach((f) => fd.append('files', f));
@@ -1277,6 +1481,8 @@
           throw new Error('未解析到有效内容');
         }
 
+        updateParsingProgress('正在智能聚合模型...', 80);
+
         const parsedItems = draft.items.map((item, idx) => ({
           ...item,
           _originalFile: all3mfFiles[idx],
@@ -1284,10 +1490,14 @@
 
         const groups = groupByMetadata(parsedItems);
         
+        await checkExistingSimilarModels(groups);
+        
         folderModels = folderModels.concat(groups);
         renderPreview();
+        hideParsingOverlay();
         setMsg(`已智能聚合为 ${groups.length} 个模型（共 ${all3mfFiles.length} 个3MF）`, false, true);
       } catch (err) {
+        hideParsingOverlay();
         setMsg(`扫描文件夹失败：${err.message || err}`, true);
       }
     });

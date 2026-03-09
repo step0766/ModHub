@@ -26,6 +26,7 @@
   /* Colors - Backgrounds */
   --bg-page: #FAFAFA;
   --bg-card: #FFFFFF;
+  --bg-card-rgb: 255, 255, 255;
   --bg-dark: #1A1A1A;
   --bg-dark-secondary: #2D2D2D;
   --bg-terminal: #0B1021;
@@ -111,6 +112,7 @@
 [data-theme="dark"] {
   --bg-page: #121212;
   --bg-card: #1E1E1E;
+  --bg-card-rgb: 30, 30, 30;
   --bg-hover: #2D2D2D;
   --bg-dark: #0A0A0A;
   --text-primary: #E0E0E0;
@@ -142,6 +144,7 @@
   :root:not([data-theme="light"]) {
     --bg-page: #121212;
     --bg-card: #1E1E1E;
+    --bg-card-rgb: 30, 30, 30;
     --bg-hover: #2D2D2D;
     --bg-dark: #0A0A0A;
     --text-primary: #E0E0E0;

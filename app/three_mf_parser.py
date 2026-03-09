@@ -368,6 +368,14 @@ def attach_preview_urls(payload: Dict, prefix: str = "manual_drafts") -> Dict:
         for x in (out.get("attachments") or [])
     ]
 
+    items = []
+    for item in out.get("items") or []:
+        i2 = dict(item)
+        item_cover = i2.get("coverFile") or ""
+        i2["coverUrl"] = tmp_url(prefix, sid, f"images/{item_cover}") if item_cover else ""
+        items.append(i2)
+    out["items"] = items
+
     instances = []
     for inst in out.get("instances") or []:
         i2 = dict(inst)

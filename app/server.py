@@ -1710,6 +1710,81 @@ async def api_gallery():
     return scan_gallery(CFG)
 
 
+@app.post("/api/gallery/check-similar")
+async def api_check_similar_models(body: dict):
+    titles = body.get("titles") or []
+    if not isinstance(titles, list) or len(titles) == 0:
+        return {"similar": []}
+    
+    gallery_items = scan_gallery(CFG)
+    existing_titles = []
+    for item in gallery_items:
+        t = (item.get("title") or "").strip().lower()
+        if t:
+            existing_titles.append({
+                "title": item.get("title"),
+                "titleLower": t,
+                "dir": item.get("dir"),
+                "cover": item.get("cover"),
+                "source": item.get("source"),
+            })
+    
+    def levenshtein_distance(s1, s2):
+        if len(s1) < len(s2):
+            return levenshtein_distance(s2, s1)
+        if len(s2) == 0:
+            return len(s1)
+        previous_row = range(len(s2) + 1)
+        for i, c1 in enumerate(s1):
+            current_row = [i + 1]
+            for j, c2 in enumerate(s2):
+                insertions = previous_row[j + 1] + 1
+                deletions = current_row[j] + 1
+                substitutions = previous_row[j] + (c1 != c2)
+                current_row.append(min(insertions, deletions, substitutions))
+            previous_row = current_row
+        return previous_row[-1]
+    
+    def calculate_similarity(s1, s2):
+        max_len = max(len(s1), len(s2))
+        if max_len == 0:
+            return 1.0
+        distance = levenshtein_distance(s1, s2)
+        return (max_len - distance) / max_len
+    
+    SIMILARITY_THRESHOLD = 0.7
+    results = []
+    
+    for new_title in titles:
+        new_title_lower = new_title.strip().lower()
+        if not new_title_lower:
+            continue
+        
+        similar_models = []
+        for existing in existing_titles:
+            similarity = calculate_similarity(new_title_lower, existing["titleLower"])
+            if similarity >= SIMILARITY_THRESHOLD:
+                cover_url = ""
+                if existing.get("cover"):
+                    cover_url = f"/files/{existing['dir']}/images/{existing['cover']}"
+                similar_models.append({
+                    "title": existing["title"],
+                    "dir": existing["dir"],
+                    "coverUrl": cover_url,
+                    "source": existing["source"],
+                    "similarity": round(similarity, 2),
+                })
+        
+        if similar_models:
+            similar_models.sort(key=lambda x: x["similarity"], reverse=True)
+            results.append({
+                "newTitle": new_title,
+                "similarModels": similar_models[:3],
+            })
+    
+    return {"similar": results}
+
+
 @app.get("/api/gallery/flags")
 async def api_gallery_flags():
     return load_gallery_flags()
