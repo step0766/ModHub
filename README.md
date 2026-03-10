@@ -42,7 +42,7 @@ services:
     image: step0766/modhub:latest
     container_name: modhub
     ports:
-      - "9000:8000"
+      - "8000:8000"
     volumes:
       - ./app/data:/app/data
       - ./app/logs:/app/logs
