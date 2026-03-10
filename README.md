@@ -50,22 +50,6 @@ services:
     restart: unless-stopped
 ```
 
-### Docker 部署
-
-```bash
-docker pull step0766/modhub:latest
-docker run -d -p 8000:8000 -v ./data:/app/data -v ./config:/app/config step0766/modhub
-```
-
-### 本地运行
-
-```bash
-git clone https://github.com/step0766/ModHub.git
-cd ModHub/app
-pip install -r requirements.txt
-python server.py
-```
-
 访问 http://localhost:8000 即可使用。
 
 ## 配置
