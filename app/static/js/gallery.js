@@ -126,15 +126,21 @@ const statBlueprint = [
   { key: "views", icon: "👁️", label: "浏览" }
 ];
 const kwInput = document.getElementById("kw");
+const kwInputMobile = document.getElementById("kwMobile");
 const filterChips = document.getElementById("filterChips");
 const authorChips = document.getElementById("authorChips");
+const keywordCloud = document.getElementById("keywordCloud");
 const sourceMenu = document.getElementById("sourceMenu");
 const clearBtn = document.getElementById("clearBtn");
+const clearBtnMobile = document.getElementById("clearBtnMobile");
 const resetSearchBtn = document.getElementById("resetSearchBtn");
+const resetSearchBtnMobile = document.getElementById("resetSearchBtnMobile");
 const paginationWrap = document.getElementById("pagination");
 const pageSizeInput = document.getElementById("pageSizeInput");
 const totalCountEl = document.getElementById("totalCount");
+const totalCountElMobile = document.getElementById("totalCountMobile");
 const sortOrderSelect = document.getElementById("sortOrder");
+const sortOrderSelectMobile = document.getElementById("sortOrderMobile");
 const favOnlyBtn = document.getElementById("favOnlyBtn");
 const printedOnlyBtn = document.getElementById("printedOnlyBtn");
 const filterModal = document.getElementById("filterModal");
@@ -643,6 +649,7 @@ async function load() {
   renderFilters();
   renderAuthorFilters();
   renderSourceMenu();
+  loadKeywords();
   syncFlagFilterButtons();
   displayedCount = loadIncrement;
   render();
@@ -720,6 +727,144 @@ function renderAuthorFilters() {
     });
     authorChips.appendChild(moreBtn);
   }
+}
+
+let keywordsData = [];
+let blockedKeywords = [];
+
+async function loadKeywords() {
+  try {
+    const res = await fetch("/api/gallery/keywords");
+    const data = await res.json();
+    keywordsData = data.keywords || [];
+    blockedKeywords = data.blocked || [];
+    renderKeywordCloud();
+    if (typeof initMobileSidebarCollapse === 'function') {
+      initMobileSidebarCollapse();
+    }
+  } catch (e) {
+    console.error("加载关键词失败:", e);
+  }
+}
+
+function renderKeywordCloud() {
+  if (!keywordCloud) return;
+  keywordCloud.innerHTML = "";
+  
+  if (keywordsData.length === 0) {
+    keywordCloud.innerHTML = '<span class="keyword-empty">暂无关键词</span>';
+    return;
+  }
+
+  const maxCount = Math.max(...keywordsData.map(k => k.count), 1);
+  
+  keywordsData.forEach(item => {
+    const tag = document.createElement("div");
+    tag.className = "keyword-tag-wrapper";
+    
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "keyword-tag";
+    
+    const ratio = item.count / maxCount;
+    const fontSize = 12 + ratio * 6;
+    btn.style.fontSize = fontSize + "px";
+    
+    btn.innerHTML = `<span class="keyword-text">${escapeHtml(item.keyword)}</span><span class="keyword-count">${item.count}</span>`;
+    btn.title = `"${item.keyword}" 出现 ${item.count} 次`;
+    
+    btn.addEventListener("click", () => {
+      if (kwInput) {
+        kwInput.value = item.keyword;
+        kwInput.dispatchEvent(new Event("input"));
+      }
+      if (kwInputMobile) {
+        kwInputMobile.value = item.keyword;
+        kwInputMobile.dispatchEvent(new Event("input"));
+      }
+    });
+    
+    const blockBtn = document.createElement("button");
+    blockBtn.type = "button";
+    blockBtn.className = "keyword-block-btn";
+    blockBtn.title = "屏蔽此关键词";
+    blockBtn.innerHTML = '<i class="fas fa-times"></i>';
+    blockBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      blockKeyword(item.keyword);
+    });
+    
+    tag.appendChild(btn);
+    tag.appendChild(blockBtn);
+    keywordCloud.appendChild(tag);
+  });
+  
+  if (blockedKeywords.length > 0) {
+    const blockedSection = document.createElement("div");
+    blockedSection.className = "keyword-blocked-section";
+    
+    const blockedTitle = document.createElement("div");
+    blockedTitle.className = "keyword-blocked-title";
+    blockedTitle.innerHTML = '<i class="fas fa-ban"></i> 已屏蔽';
+    blockedSection.appendChild(blockedTitle);
+    
+    const blockedList = document.createElement("div");
+    blockedList.className = "keyword-blocked-list";
+    
+    blockedKeywords.forEach(keyword => {
+      const item = document.createElement("div");
+      item.className = "keyword-blocked-item";
+      item.innerHTML = `
+        <span class="keyword-blocked-text">${escapeHtml(keyword)}</span>
+        <button type="button" class="keyword-unblock-btn" title="取消屏蔽">
+          <i class="fas fa-undo"></i>
+        </button>
+      `;
+      item.querySelector(".keyword-unblock-btn").addEventListener("click", () => {
+        unblockKeyword(keyword);
+      });
+      blockedList.appendChild(item);
+    });
+    
+    blockedSection.appendChild(blockedList);
+    keywordCloud.appendChild(blockedSection);
+  }
+}
+
+async function blockKeyword(keyword) {
+  try {
+    const res = await fetch("/api/gallery/keywords/blocked", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ keyword, action: "add" })
+    });
+    const data = await res.json();
+    blockedKeywords = data.blocked || [];
+    await loadKeywords();
+  } catch (e) {
+    console.error("屏蔽关键词失败:", e);
+  }
+}
+
+async function unblockKeyword(keyword) {
+  try {
+    const res = await fetch("/api/gallery/keywords/blocked", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ keyword, action: "remove" })
+    });
+    const data = await res.json();
+    blockedKeywords = data.blocked || [];
+    await loadKeywords();
+  } catch (e) {
+    console.error("取消屏蔽失败:", e);
+  }
+}
+
+function escapeHtml(text) {
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
 }
 
 function renderSourceMenu() {
@@ -1223,9 +1368,25 @@ if (kwInput) {
     render(); 
   });
 }
+if (kwInputMobile) {
+  kwInputMobile.addEventListener("input", () => { 
+    if (kwInput) kwInput.value = kwInputMobile.value;
+    displayedCount = loadIncrement; 
+    render(); 
+  });
+}
 if (clearBtn && kwInput) {
   clearBtn.addEventListener("click", () => {
     kwInput.value = "";
+    if (kwInputMobile) kwInputMobile.value = "";
+    displayedCount = loadIncrement;
+    render();
+  });
+}
+if (clearBtnMobile && kwInputMobile) {
+  clearBtnMobile.addEventListener("click", () => {
+    kwInputMobile.value = "";
+    if (kwInput) kwInput.value = "";
     displayedCount = loadIncrement;
     render();
   });
@@ -1233,6 +1394,7 @@ if (clearBtn && kwInput) {
 
 function resetAllFilters() {
   if (kwInput) kwInput.value = "";
+  if (kwInputMobile) kwInputMobile.value = "";
   activeTag = "";
   activeAuthor = "";
   activeSource = "";
@@ -1251,9 +1413,25 @@ function resetAllFilters() {
 if (resetSearchBtn) {
   resetSearchBtn.addEventListener("click", resetAllFilters);
 }
+if (resetSearchBtnMobile) {
+  resetSearchBtnMobile.addEventListener("click", resetAllFilters);
+}
+
+// Removed legacy reset button listener that used non-existent currentPage
+
+
+// Removed pageSize input - using infinite scroll now
 
 if (sortOrderSelect) {
   sortOrderSelect.addEventListener("change", () => {
+    if (sortOrderSelectMobile) sortOrderSelectMobile.value = sortOrderSelect.value;
+    displayedCount = loadIncrement;
+    render();
+  });
+}
+if (sortOrderSelectMobile) {
+  sortOrderSelectMobile.addEventListener("change", () => {
+    if (sortOrderSelect) sortOrderSelect.value = sortOrderSelectMobile.value;
     displayedCount = loadIncrement;
     render();
   });
@@ -1463,7 +1641,7 @@ function initMobileSidebarCollapse() {
   
   sideTitles.forEach(title => {
     const menu = title.nextElementSibling;
-    if (menu && menu.classList.contains('side-menu')) {
+    if (menu && (menu.classList.contains('side-menu') || menu.classList.contains('keyword-cloud'))) {
       // Load saved collapse state
       const sectionKey = 'sidebarSection_' + title.textContent.trim();
       const isCollapsed = localStorage.getItem(sectionKey) === 'collapsed';

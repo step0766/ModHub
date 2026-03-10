@@ -13,34 +13,12 @@ body {
     -webkit-font-smoothing: antialiased;
 }
 
-/* 主题切换按钮 */
-.theme-toggle {
+/* 主题切换按钮 - 模型详情页定位 */
+.btn-theme-toggle {
     position: fixed;
     top: 20px;
     right: 20px;
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    border: 1px solid var(--border-color);
-    background: var(--bg-card);
-    color: var(--text-primary);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
-    box-shadow: var(--shadow-md);
-    transition: all 0.3s ease;
     z-index: 1000;
-}
-
-.theme-toggle:hover {
-    transform: scale(1.1);
-    box-shadow: var(--shadow-lg);
-}
-
-.theme-toggle:active {
-    transform: scale(0.95);
 }
 
 .container {
@@ -107,7 +85,11 @@ body {
     .card-block {
         margin-bottom: var(--spacing-md);
         padding: var(--spacing-md);
-        /* Reduce padding on mobile */
+    }
+
+    .btn-theme-toggle {
+        top: 12px;
+        right: 12px;
     }
 }
 

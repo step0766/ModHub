@@ -36,6 +36,7 @@ BASE_DIR = Path(__file__).resolve().parent
 CONFIG_DIR = BASE_DIR / "config"
 CONFIG_PATH = CONFIG_DIR / "config.json"
 GALLERY_FLAGS_PATH = CONFIG_DIR / "gallery_flags.json"
+BLOCKED_KEYWORDS_PATH = CONFIG_DIR / "blocked_keywords.json"
 TMP_DIR = BASE_DIR / "tmp"
 MANUAL_DRAFT_ROOT = TMP_DIR / "manual_drafts"
 DEFAULT_CONFIG = {
@@ -1708,6 +1709,92 @@ async def api_clear_all_missing():
 @app.get("/api/gallery")
 async def api_gallery():
     return scan_gallery(CFG)
+
+
+STOP_WORDS = {
+    "的", "和", "与", "或", "了", "是", "在", "有", "一", "个", "这", "那", "我", "你", "他", "她", "它",
+    "们", "着", "过", "会", "能", "可", "以", "也", "都", "就", "而", "及", "等", "但", "如", "被", "把",
+    "从", "到", "向", "对", "为", "于", "上", "下", "中", "里", "外", "前", "后", "左", "右", "大", "小",
+    "多", "少", "高", "低", "长", "短", "新", "旧", "好", "坏", "很", "太", "更", "最", "不", "没", "无",
+    "the", "a", "an", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had", "do",
+    "does", "did", "will", "would", "could", "should", "may", "might", "must", "shall", "can", "need",
+    "to", "of", "in", "for", "on", "with", "at", "by", "from", "as", "into", "through", "during",
+    "before", "after", "above", "below", "between", "under", "again", "further", "then", "once",
+    "here", "there", "when", "where", "why", "how", "all", "each", "few", "more", "most", "other",
+    "some", "such", "no", "nor", "not", "only", "own", "same", "so", "than", "too", "very", "just",
+    "and", "but", "if", "or", "because", "until", "while", "this", "that", "these", "those", "it",
+}
+
+def extract_keywords_from_titles(titles: List[str], top_n: int = 10, blocked: List[str] = None) -> List[dict]:
+    import re
+    word_counts = {}
+    blocked_lower = set((k.lower() for k in (blocked or [])))
+    
+    for title in titles:
+        if not title:
+            continue
+        title_lower = title.lower()
+        words = re.findall(r'[\u4e00-\u9fa5]+|[a-zA-Z]{2,}', title_lower)
+        for word in words:
+            if word in STOP_WORDS or len(word) < 2 or word in blocked_lower:
+                continue
+            word_counts[word] = word_counts.get(word, 0) + 1
+    
+    sorted_words = sorted(word_counts.items(), key=lambda x: (-x[1], x[0]))
+    return [{"keyword": w, "count": c} for w, c in sorted_words[:top_n]]
+
+
+@app.get("/api/gallery/keywords")
+async def api_gallery_keywords():
+    items = scan_gallery(CFG)
+    titles = [item.get("title") or "" for item in items]
+    blocked = load_blocked_keywords()
+    keywords = extract_keywords_from_titles(titles, top_n=20, blocked=blocked)
+    return {"keywords": keywords, "blocked": blocked}
+
+
+def load_blocked_keywords() -> List[str]:
+    try:
+        if BLOCKED_KEYWORDS_PATH.exists():
+            data = json.loads(BLOCKED_KEYWORDS_PATH.read_text(encoding="utf-8"))
+            return data.get("blocked", []) if isinstance(data, dict) else []
+    except Exception:
+        pass
+    return []
+
+
+def save_blocked_keywords(blocked: List[str]):
+    BLOCKED_KEYWORDS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    BLOCKED_KEYWORDS_PATH.write_text(
+        json.dumps({"blocked": blocked}, ensure_ascii=False, indent=2),
+        encoding="utf-8"
+    )
+
+
+@app.get("/api/gallery/keywords/blocked")
+async def api_get_blocked_keywords():
+    return {"blocked": load_blocked_keywords()}
+
+
+@app.post("/api/gallery/keywords/blocked")
+async def api_update_blocked_keyword(body: dict):
+    keyword = body.get("keyword")
+    action = body.get("action")
+    
+    if not keyword or action not in ("add", "remove"):
+        raise HTTPException(400, "Invalid request")
+    
+    blocked = load_blocked_keywords()
+    keyword_lower = keyword.lower()
+    
+    if action == "add":
+        if keyword_lower not in [k.lower() for k in blocked]:
+            blocked.append(keyword)
+    elif action == "remove":
+        blocked = [k for k in blocked if k.lower() != keyword_lower]
+    
+    save_blocked_keywords(blocked)
+    return {"blocked": blocked}
 
 
 @app.post("/api/gallery/check-similar")
