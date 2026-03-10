@@ -31,7 +31,27 @@
 
 ## 快速开始
 
-### Docker 部署（推荐）
+## Docker Compose 启动（推荐）
+创建 `docker-compose.yml` 文件：
+
+```yaml
+version: '3.8'
+
+services:
+  mw-archiver:
+    image: sonicming/mw-archiver:latest
+    container_name: mw-archiver
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./app/data:/app/data
+      - ./app/logs:/app/logs
+      - ./app/config:/app/config
+      - ./app/watch:/app/watch
+    restart: unless-stopped
+```
+
+### Docker 部署
 
 ```bash
 docker pull step0766/modhub:latest
