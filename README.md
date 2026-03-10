@@ -38,16 +38,15 @@
 version: '3.8'
 
 services:
-  mw-archiver:
-    image: sonicming/mw-archiver:latest
-    container_name: mw-archiver
+  modhub:
+    image: step0766/modhub:latest
+    container_name: modhub
     ports:
-      - "8000:8000"
+      - "9000:8000"
     volumes:
       - ./app/data:/app/data
       - ./app/logs:/app/logs
       - ./app/config:/app/config
-      - ./app/watch:/app/watch
     restart: unless-stopped
 ```
 
